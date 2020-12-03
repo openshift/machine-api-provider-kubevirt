@@ -4,23 +4,19 @@ go 1.13
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/gogo/protobuf v1.3.1 // indirect
-	github.com/golang/mock v1.2.0
-	github.com/google/gofuzz v1.1.0 // indirect
-	github.com/openshift/machine-api-operator v0.2.1-0.20200402110321-4f3602b96da3
-	golang.org/x/crypto v0.0.0-20191205180655-e7c4368fe9dd // indirect
+	github.com/golang/mock v1.4.4
+	github.com/openshift/machine-api-operator v0.2.1-0.20201203125141-79567cb3368e
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.18.3
-	k8s.io/apiextensions-apiserver v0.18.0-rc.1 // indirect
-	k8s.io/apimachinery v0.18.3
+	k8s.io/api v0.19.2
+	k8s.io/apimachinery v0.19.2
 	k8s.io/client-go v12.0.0+incompatible
 	// k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6 // indirect
 	kubevirt.io/client-go v0.29.0
 	kubevirt.io/containerized-data-importer v1.10.9
-	sigs.k8s.io/controller-runtime v0.6.0
-	sigs.k8s.io/controller-tools v0.2.4
+	sigs.k8s.io/controller-runtime v0.6.2
+	sigs.k8s.io/controller-tools v0.3.0
 	sigs.k8s.io/yaml v1.2.0
 )
 
@@ -61,15 +57,7 @@ replace (
 	kubevirt.io/client-go => kubevirt.io/client-go v0.29.2
 )
 
-// sigs.k8s.io/controller-runtime 0.6.0
-// and
-// github.com/openshift/machine-api-operator v0.2.1-0.20200402110321-4f3602b96da3 (throgh its import github.com/openshift/client-go)
-// requires k8s-* v0.18.2
-// but we are pinned to kubernetes-1.16.4 as for kubevirt.io/kubevirt v0.29.1 while we explicitly
-// need github.com/operator-framework/api v0.3.5
 replace (
-	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200116152001-92a2713fa240
-	github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20200319152458-7a39d5ab5137
-	github.com/operator-framework/api => github.com/operator-framework/api v0.3.5
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.5.2
+	sigs.k8s.io/cluster-api-provider-aws => github.com/openshift/cluster-api-provider-aws v0.2.1-0.20201125052318-b85a18cbf338
+	sigs.k8s.io/cluster-api-provider-azure => github.com/openshift/cluster-api-provider-azure v0.1.0-alpha.3.0.20201130182513-88b90230f2a4
 )
