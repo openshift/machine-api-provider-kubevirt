@@ -409,7 +409,7 @@ func TestUpdate(t *testing.T) {
 			clientUpdateVMError:    nil,
 			emptyGetVM:             false,
 			labels:                 nil,
-			providerID:             formatProviderID(defaultNamespace, mahcineName),
+			providerID:             formatProviderID(clusterNamespace, mahcineName),
 			wantVMToBeReady:        true,
 		},
 		{
@@ -420,7 +420,7 @@ func TestUpdate(t *testing.T) {
 			clientUpdateVMError:             nil,
 			emptyGetVM:                      false,
 			labels:                          nil,
-			providerID:                      formatProviderID(defaultNamespace, mahcineName),
+			providerID:                      formatProviderID(clusterNamespace, mahcineName),
 			wantVMToBeReady:                 true,
 			useDefaultCredentialsSecretName: true,
 		},

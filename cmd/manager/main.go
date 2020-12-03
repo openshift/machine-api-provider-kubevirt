@@ -22,6 +22,7 @@ import (
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/infracluster"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/tenantcluster"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/managers/vm"
+	"github.com/openshift/cluster-api-provider-kubevirt/pkg/providerid"
 	mapiv1beta1 "github.com/openshift/machine-api-operator/pkg/apis/machine/v1beta1"
 	"github.com/openshift/machine-api-operator/pkg/controller/machine"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -144,6 +145,9 @@ func main() {
 	if err := machine.AddWithActuator(mgr, machineActuator); err != nil {
 		klog.Fatalf("Error adding actuator: %v", err)
 	}
+
+	// Register the providerID controller
+	providerid.Add(mgr, manager.Options{})
 
 	if err := mgr.AddReadyzCheck("ping", healthz.Ping); err != nil {
 		klog.Fatal(err)

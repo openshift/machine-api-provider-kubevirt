@@ -12,6 +12,7 @@ import (
 	kubevirtproviderv1alpha1 "github.com/openshift/cluster-api-provider-kubevirt/pkg/apis/kubevirtprovider/v1alpha1"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/infracluster"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/tenantcluster"
+	providerctrl "github.com/openshift/cluster-api-provider-kubevirt/pkg/providerid"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/utils"
 	machinev1 "github.com/openshift/machine-api-operator/pkg/apis/machine/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -213,7 +214,7 @@ func (s *machineScope) setProviderID(vm *kubevirtapiv1.VirtualMachine) {
 		return
 	}
 
-	providerID := formatProviderID(s.getMachineNamespace(), vm.GetName())
+	providerID := providerctrl.FormatProviderID(vm.GetNamespace(), vm.GetName())
 
 	if existingProviderID != nil && *existingProviderID == providerID {
 		klog.Infof("%s: ProviderID already set in the machine Spec with value:%s", s.getMachineName(), *existingProviderID)
