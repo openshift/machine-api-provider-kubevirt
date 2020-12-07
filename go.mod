@@ -7,7 +7,7 @@ require (
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/mock v1.2.0
 	github.com/google/gofuzz v1.1.0 // indirect
-	github.com/openshift/machine-api-operator v0.2.1-0.20200402110321-4f3602b96da3
+	github.com/openshift/machine-api-operator v0.2.1-0.20201205203935-bf4ec1b2e645
 	golang.org/x/crypto v0.0.0-20191205180655-e7c4368fe9dd // indirect
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.18.3
@@ -69,7 +69,6 @@ replace (
 // need github.com/operator-framework/api v0.3.5
 replace (
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200116152001-92a2713fa240
-	github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20200319152458-7a39d5ab5137
 	github.com/operator-framework/api => github.com/operator-framework/api v0.3.5
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.5.2
 )
