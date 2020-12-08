@@ -14,6 +14,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 	"time"
@@ -42,11 +43,7 @@ var (
 )
 
 func main() {
-	var printVersion bool
-	flag.BoolVar(&printVersion, "version", false, "print version and exit")
-
-	// TODO Add relevant flags as written in klog initFlags
-	//klog.InitFlags(nil)
+	klog.InitFlags(nil)
 
 	watchNamespace := flag.String(
 		"namespace",
@@ -54,11 +51,11 @@ func main() {
 		"Namespace that the controller watches to reconcile machine-api objects. If unspecified, the controller watches for machine-api objects across all namespaces.",
 	)
 
-	// metricsAddr := flag.String(
-	// 	"metrics-addr",
-	// 	":8081",
-	// 	"The address the metric endpoint binds to.",
-	// )
+	metricsAddr := flag.String(
+		"metrics-addr",
+		":8081",
+		"The address the metric endpoint binds to.",
+	)
 
 	healthAddr := flag.String(
 		"health-addr",
@@ -84,12 +81,9 @@ func main() {
 		"The duration that non-leader candidates will wait after observing a leadership renewal until attempting to acquire leadership of a led but unrenewed leader slot. This is effectively the maximum duration that a leader can be stopped before it is replaced by another candidate. This is only applicable if leader election is enabled.",
 	)
 
-	// TODO Remove this flag when stable
-	flag.Set("logtostderr", "true")
-
 	flag.Parse()
 
-	log := logf.Log.WithName("infracluster-controller-manager")
+	log := logf.Log.WithName("kubevirt-controller-manager")
 	logf.SetLogger(logf.ZapLogger(false))
 	entryLog := log.WithName("entrypoint")
 
@@ -105,12 +99,10 @@ func main() {
 		LeaderElectionNamespace: *leaderElectResourceNamespace,
 		LeaderElectionID:        "cluster-api-provider-ovirt-leader",
 		LeaseDuration:           leaderElectLeaseDuration,
-		// Disable metrics serving
-		MetricsBindAddress:     "0", // *metricsAddr,
-		HealthProbeBindAddress: *healthAddr,
-		// Slow the default retry and renew election rate to reduce etcd writes at idle: BZ 1858400
-		RetryPeriod:   &retryPeriod,
-		RenewDeadline: &renewDeadline,
+		MetricsBindAddress:      *metricsAddr,
+		HealthProbeBindAddress:  *healthAddr,
+		RetryPeriod:             &retryPeriod,
+		RenewDeadline:           &renewDeadline,
 	}
 
 	if *watchNamespace != "" {
@@ -136,7 +128,7 @@ func main() {
 	}
 
 	// Initialize infra-cluster clients
-	infraClusterClient, err := infracluster.New(tenantClusterClient)
+	infraClusterClient, err := infracluster.New(context.Background(), tenantClusterClient)
 	if err != nil {
 		entryLog.Error(err, "Failed to create infracluster client from configuration")
 	}

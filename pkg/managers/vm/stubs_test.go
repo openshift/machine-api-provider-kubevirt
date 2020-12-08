@@ -259,7 +259,7 @@ func stubMachine(labels map[string]string, providerID string, useDefaultCredenti
 			ClusterName: clusterName,
 		},
 		Spec: machinev1.MachineSpec{
-			ObjectMeta:   metav1.ObjectMeta{},
+			ObjectMeta:   machinev1.ObjectMeta{},
 			ProviderSpec: machinev1.ProviderSpec{Value: providerSpecValue},
 			ProviderID:   &providerID,
 		},

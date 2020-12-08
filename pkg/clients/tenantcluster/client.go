@@ -43,7 +43,7 @@ const (
 type Client interface {
 	PatchMachine(machine *machinev1.Machine, originMachineCopy *machinev1.Machine) error
 	StatusPatchMachine(machine *machinev1.Machine, originMachineCopy *machinev1.Machine) error
-	GetSecret(secretName string, namespace string) (*corev1.Secret, error)
+	GetSecret(ctx context.Context, secretName string, namespace string) (*corev1.Secret, error)
 	GetNamespace() (string, error)
 	GetInfraID() (string, error)
 }
@@ -74,12 +74,12 @@ func (c *kubeClient) StatusPatchMachine(machine *machinev1.Machine, originMachin
 	return c.runtimeClient.Status().Patch(context.Background(), machine, client.MergeFrom(originMachineCopy))
 }
 
-func (c *kubeClient) GetSecret(secretName string, namespace string) (*corev1.Secret, error) {
-	return c.kubernetesClient.CoreV1().Secrets(namespace).Get(secretName, k8smetav1.GetOptions{})
+func (c *kubeClient) GetSecret(ctx context.Context, secretName string, namespace string) (*corev1.Secret, error) {
+	return c.kubernetesClient.CoreV1().Secrets(namespace).Get(ctx, secretName, k8smetav1.GetOptions{})
 }
 
 func (c *kubeClient) GetInfraID() (string, error) {
-	cMap, err := c.getConfigMap()
+	cMap, err := c.getConfigMap(context.Background())
 	if err != nil {
 		return "", nil
 	}
@@ -91,7 +91,7 @@ func (c *kubeClient) GetInfraID() (string, error) {
 }
 
 func (c *kubeClient) GetNamespace() (string, error) {
-	cMap, err := c.getConfigMap()
+	cMap, err := c.getConfigMap(context.Background())
 	if err != nil {
 		return "", nil
 	}
@@ -102,8 +102,8 @@ func (c *kubeClient) GetNamespace() (string, error) {
 	return vmNamespace, nil
 }
 
-func (c *kubeClient) getConfigMap() (*map[string]string, error) {
-	configMap, err := c.kubernetesClient.CoreV1().ConfigMaps(ConfigMapNamespace).Get(ConfigMapName, k8smetav1.GetOptions{})
+func (c *kubeClient) getConfigMap(ctx context.Context) (*map[string]string, error) {
+	configMap, err := c.kubernetesClient.CoreV1().ConfigMaps(ConfigMapNamespace).Get(ctx, ConfigMapName, k8smetav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

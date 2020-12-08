@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -341,7 +342,7 @@ func buildIgnitionSecretName(virtualMachineName string) string {
 
 func (s *machineScope) getUserData(namespace string, virtualMachineName string) ([]byte, error) {
 	secretName := s.machineProviderSpec.IgnitionSecretName
-	userDataSecret, err := s.tenantClusterClient.GetSecret(secretName, s.machine.GetNamespace())
+	userDataSecret, err := s.tenantClusterClient.GetSecret(context.Background(), secretName, s.machine.GetNamespace())
 	if err != nil {
 		if apimachineryerrors.IsNotFound(err) {
 			return nil, machinecontroller.InvalidMachineConfiguration("Tenant-cluster credentials secret %s/%s: %v not found", namespace, secretName, err)
