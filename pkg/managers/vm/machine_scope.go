@@ -60,7 +60,7 @@ type machineScope struct {
 	infraID               string
 }
 
-func newMachineScope(machine *machinev1.Machine, tenantClusterClient tenantcluster.Client, infraClusterClient infracluster.Client) (*machineScope, error) {
+func newMachineScope(machine *machinev1.Machine, infraClusterClient infracluster.Client, tenantClusterClient tenantcluster.Client) (*machineScope, error) {
 	if err := validateMachine(*machine); err != nil {
 		return nil, fmt.Errorf("%v: failed validating machine provider spec: %w", machine.GetName(), err)
 	}
@@ -513,8 +513,4 @@ func (s *machineScope) setProviderStatus(vm *kubevirtapiv1.VirtualMachine, vmi *
 // GetMachineName return the name of the provided Machine
 func GetMachineName(machine *machinev1.Machine) string {
 	return machine.GetName()
-}
-
-func formatProviderID(namespace, name string) string {
-	return fmt.Sprintf(providerIDFormat, namespace, name)
 }

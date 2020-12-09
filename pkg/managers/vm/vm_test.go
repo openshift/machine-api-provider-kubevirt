@@ -12,6 +12,7 @@ import (
 	"github.com/golang/mock/gomock"
 	mockInfraClusterClient "github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/infracluster/mock"
 	mockTenantClusterClient "github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/tenantcluster/mock"
+	providerctrl "github.com/openshift/cluster-api-provider-kubevirt/pkg/providerid"
 	"gotest.tools/assert"
 )
 
@@ -395,7 +396,7 @@ func TestUpdate(t *testing.T) {
 			clientUpdateVMError:    nil,
 			emptyGetVM:             false,
 			labels:                 nil,
-			providerID:             formatProviderID(clusterNamespace, mahcineName),
+			providerID:             providerctrl.FormatProviderID(clusterNamespace, mahcineName),
 			wantVMToBeReady:        true,
 		},
 		{
@@ -406,7 +407,7 @@ func TestUpdate(t *testing.T) {
 			clientUpdateVMError:             nil,
 			emptyGetVM:                      false,
 			labels:                          nil,
-			providerID:                      formatProviderID(clusterNamespace, mahcineName),
+			providerID:                      providerctrl.FormatProviderID(clusterNamespace, mahcineName),
 			wantVMToBeReady:                 true,
 			useDefaultCredentialsSecretName: true,
 		},
