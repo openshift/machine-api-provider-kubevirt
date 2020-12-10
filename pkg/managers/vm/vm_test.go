@@ -10,10 +10,9 @@ import (
 	machinev1 "github.com/openshift/machine-api-operator/pkg/apis/machine/v1beta1"
 
 	"github.com/golang/mock/gomock"
-	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/infracluster"
 	mockInfraClusterClient "github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/infracluster/mock"
-	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/tenantcluster"
 	mockTenantClusterClient "github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/tenantcluster/mock"
+	providerctrl "github.com/openshift/cluster-api-provider-kubevirt/pkg/providerid"
 	"gotest.tools/assert"
 )
 
@@ -104,11 +103,7 @@ func TestCreate(t *testing.T) {
 				t.Fatalf("Unable to create the stub machine object")
 			}
 
-			infraClusterClientMockBuilder := func(tenantClusterClient tenantcluster.Client, secretName, namespace string) (infracluster.Client, error) {
-				return newMockInfraClusterClient, nil
-			}
-
-			machineScope, err := stubMachineScope(machine, newMockTenantClusterClient, infraClusterClientMockBuilder)
+			machineScope, err := stubMachineScope(machine, newMockTenantClusterClient, newMockInfraClusterClient)
 			if err != nil {
 				t.Fatalf("Unable to build virtual machine with error: %v", err)
 			}
@@ -132,7 +127,7 @@ func TestCreate(t *testing.T) {
 			newMockTenantClusterClient.EXPECT().GetNamespace().Return(clusterNamespace, nil).AnyTimes()
 			newMockTenantClusterClient.EXPECT().GetInfraID().Return(infraID, nil).AnyTimes()
 
-			providerVMInstance := New(infraClusterClientMockBuilder, newMockTenantClusterClient)
+			providerVMInstance := New(newMockInfraClusterClient, newMockTenantClusterClient)
 			err = providerVMInstance.Create(machine)
 			if tc.wantValidateMachineErr != "" {
 				assert.Equal(t, tc.wantValidateMachineErr, err.Error())
@@ -240,11 +235,7 @@ func TestDelete(t *testing.T) {
 				t.Fatalf("Unable to create the stub machine object")
 			}
 
-			infraClusterClientMockBuilder := func(tenantClusterClient tenantcluster.Client, secretName, namespace string) (infracluster.Client, error) {
-				return newMockInfraClusterClient, nil
-			}
-
-			machineScope, err := stubMachineScope(machine, newMockTenantClusterClient, infraClusterClientMockBuilder)
+			machineScope, err := stubMachineScope(machine, newMockTenantClusterClient, newMockInfraClusterClient)
 			if err != nil {
 				t.Fatalf("Unable to build virtual machine with error: %v", err)
 			}
@@ -270,7 +261,7 @@ func TestDelete(t *testing.T) {
 			newMockTenantClusterClient.EXPECT().GetNamespace().Return("kubevirt-actuator-cluster", nil).AnyTimes()
 			newMockTenantClusterClient.EXPECT().GetInfraID().Return(infraID, nil).AnyTimes()
 
-			providerVMInstance := New(infraClusterClientMockBuilder, newMockTenantClusterClient)
+			providerVMInstance := New(newMockInfraClusterClient, newMockTenantClusterClient)
 			err = providerVMInstance.Delete(machine)
 
 			// getServicErr
@@ -346,11 +337,7 @@ func TestExists(t *testing.T) {
 				t.Fatalf("Unable to create the stub machine object")
 			}
 
-			infraClusterClientMockBuilder := func(tenantClusterClient tenantcluster.Client, secretName, namespace string) (infracluster.Client, error) {
-				return newMockInfraClusterClient, nil
-			}
-
-			machineScope, err := stubMachineScope(machine, newMockTenantClusterClient, infraClusterClientMockBuilder)
+			machineScope, err := stubMachineScope(machine, newMockTenantClusterClient, newMockInfraClusterClient)
 			if err != nil {
 				t.Fatalf("Unable to build virtual machine with error: %v", err)
 			}
@@ -370,7 +357,7 @@ func TestExists(t *testing.T) {
 			newMockTenantClusterClient.EXPECT().GetNamespace().Return("kubevirt-actuator-cluster", nil).AnyTimes()
 			newMockTenantClusterClient.EXPECT().GetInfraID().Return(infraID, nil).AnyTimes()
 
-			providerVMInstance := New(infraClusterClientMockBuilder, newMockTenantClusterClient)
+			providerVMInstance := New(newMockInfraClusterClient, newMockTenantClusterClient)
 			existsVM, err := providerVMInstance.Exists(machine)
 
 			if tc.clientGetError != nil {
@@ -409,7 +396,7 @@ func TestUpdate(t *testing.T) {
 			clientUpdateVMError:    nil,
 			emptyGetVM:             false,
 			labels:                 nil,
-			providerID:             formatProviderID(clusterNamespace, mahcineName),
+			providerID:             providerctrl.FormatProviderID(clusterNamespace, mahcineName),
 			wantVMToBeReady:        true,
 		},
 		{
@@ -420,7 +407,7 @@ func TestUpdate(t *testing.T) {
 			clientUpdateVMError:             nil,
 			emptyGetVM:                      false,
 			labels:                          nil,
-			providerID:                      formatProviderID(clusterNamespace, mahcineName),
+			providerID:                      providerctrl.FormatProviderID(clusterNamespace, mahcineName),
 			wantVMToBeReady:                 true,
 			useDefaultCredentialsSecretName: true,
 		},
@@ -493,11 +480,7 @@ func TestUpdate(t *testing.T) {
 				t.Fatalf("Unable to create the stub machine object")
 			}
 
-			infraClusterClientMockBuilder := func(tenantClusterClient tenantcluster.Client, secretName, namespace string) (infracluster.Client, error) {
-				return newMockInfraClusterClient, nil
-			}
-
-			machineScope, err := stubMachineScope(machine, newMockTenantClusterClient, infraClusterClientMockBuilder)
+			machineScope, err := stubMachineScope(machine, newMockTenantClusterClient, newMockInfraClusterClient)
 			if err != nil {
 				t.Fatalf("Unable to build virtual machine with error: %v", err)
 			}
@@ -534,7 +517,7 @@ func TestUpdate(t *testing.T) {
 			newMockTenantClusterClient.EXPECT().GetNamespace().Return("kubevirt-actuator-cluster", nil).AnyTimes()
 			newMockTenantClusterClient.EXPECT().GetInfraID().Return(infraID, nil).AnyTimes()
 
-			providerVMInstance := New(infraClusterClientMockBuilder, newMockTenantClusterClient)
+			providerVMInstance := New(newMockInfraClusterClient, newMockTenantClusterClient)
 			// TODO: test the bool wasUpdated
 			_, err = providerVMInstance.Update(machine)
 

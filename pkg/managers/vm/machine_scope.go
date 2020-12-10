@@ -60,7 +60,7 @@ type machineScope struct {
 	infraID               string
 }
 
-func newMachineScope(machine *machinev1.Machine, tenantClusterClient tenantcluster.Client, infraClusterClientBuilder infracluster.ClientBuilderFuncType) (*machineScope, error) {
+func newMachineScope(machine *machinev1.Machine, infraClusterClient infracluster.Client, tenantClusterClient tenantcluster.Client) (*machineScope, error) {
 	if err := validateMachine(*machine); err != nil {
 		return nil, fmt.Errorf("%v: failed validating machine provider spec: %w", machine.GetName(), err)
 	}
@@ -73,11 +73,6 @@ func newMachineScope(machine *machinev1.Machine, tenantClusterClient tenantclust
 	providerStatus, err := kubevirtproviderv1alpha1.ProviderStatusFromRawExtension(machine.Status.ProviderStatus)
 	if err != nil {
 		return nil, machinecontroller.InvalidMachineConfiguration("failed to get machine provider status: %v", err.Error())
-	}
-
-	infraClusterClient, err := infraClusterClientBuilder(tenantClusterClient, providerSpec.CredentialsSecretName, machine.GetNamespace())
-	if err != nil {
-		return nil, machinecontroller.InvalidMachineConfiguration("failed to create aKubeVirt client: %v", err.Error())
 	}
 
 	vmNamespace, err := tenantClusterClient.GetNamespace()
@@ -518,8 +513,4 @@ func (s *machineScope) setProviderStatus(vm *kubevirtapiv1.VirtualMachine, vmi *
 // GetMachineName return the name of the provided Machine
 func GetMachineName(machine *machinev1.Machine) string {
 	return machine.GetName()
-}
-
-func formatProviderID(namespace, name string) string {
-	return fmt.Sprintf(providerIDFormat, namespace, name)
 }

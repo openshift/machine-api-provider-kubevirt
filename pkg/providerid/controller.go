@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/infracluster"
+	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/tenantcluster"
 )
 
 const IDFormat = "kubevirt://%s/%s"
@@ -27,11 +28,9 @@ const IDFormat = "kubevirt://%s/%s"
 var _ reconcile.Reconciler = &providerIDReconciler{}
 
 type providerIDReconciler struct {
-	client                client.Client
-	listNodesByFieldFunc  func(key, value string) ([]corev1.Node, error)
-	fetchProviderIDFunc   func(string) (string, error)
-	infraClusterClient    infracluster.Client
-	infraClusterNamespace string
+	client              client.Client
+	infraClusterClient  infracluster.Client
+	tenantClusterClient tenantcluster.Client
 }
 
 // Reconcile make sure a node has a ProviderID set. The providerID is the ID
@@ -59,12 +58,17 @@ func (r *providerIDReconciler) Reconcile(request reconcile.Request) (reconcile.R
 	}
 
 	klog.Info("spec.ProviderID is empty, fetching from the infra-cluster", "node", request.NamespacedName)
-	id, err := r.fetchProviderIDFunc(node.Name)
+	id, err := r.getVMName(node.Name)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	node.Spec.ProviderID = FormatProviderID(r.infraClusterNamespace, id)
+	infraClusterNamespace, err := r.tenantClusterClient.GetNamespace()
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	node.Spec.ProviderID = FormatProviderID(infraClusterNamespace, id)
 	err = r.client.Update(context.Background(), &node)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed updating node %s: %v", node.Name, err)
@@ -80,7 +84,11 @@ func FormatProviderID(namespace, name string) string {
 }
 
 func (r *providerIDReconciler) getVMName(nodeName string) (string, error) {
-	vmi, err := r.infraClusterClient.GetVirtualMachineInstance(r.infraClusterNamespace, nodeName, &v1.GetOptions{})
+	infraClusterNamespace, err := r.tenantClusterClient.GetNamespace()
+	if err != nil {
+		return "", err
+	}
+	vmi, err := r.infraClusterClient.GetVirtualMachineInstance(infraClusterNamespace, nodeName, &v1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -88,8 +96,8 @@ func (r *providerIDReconciler) getVMName(nodeName string) (string, error) {
 }
 
 // Add registers a new provider ID reconciler controller with the controller manager
-func Add(mgr manager.Manager, opts manager.Options) error {
-	reconciler, err := NewProviderIDReconciler(mgr)
+func Add(mgr manager.Manager, infraClusterClient infracluster.Client, tenantClusterClient tenantcluster.Client) error {
+	reconciler, err := NewProviderIDReconciler(mgr, infraClusterClient, tenantClusterClient)
 
 	if err != nil {
 		return fmt.Errorf("error building reconciler: %v", err)
@@ -110,10 +118,11 @@ func Add(mgr manager.Manager, opts manager.Options) error {
 }
 
 // NewProviderIDReconciler creates a new providerID reconciler
-func NewProviderIDReconciler(mgr manager.Manager) (*providerIDReconciler, error) {
+func NewProviderIDReconciler(mgr manager.Manager, infraClusterClient infracluster.Client, tenantClusterClient tenantcluster.Client) (*providerIDReconciler, error) {
 	r := providerIDReconciler{
-		client: mgr.GetClient(),
+		client:              mgr.GetClient(),
+		infraClusterClient:  infraClusterClient,
+		tenantClusterClient: tenantClusterClient,
 	}
-	r.fetchProviderIDFunc = r.getVMName
 	return &r, nil
 }

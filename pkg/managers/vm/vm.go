@@ -34,21 +34,21 @@ type ProviderVM interface {
 // Use tenantClusterClient to access secret params assigned by user
 // Use infraClusterClientBuilder to create the infra cluster vms
 type manager struct {
-	infraClusterClientBuilder infracluster.ClientBuilderFuncType
-	tenantClusterClient       tenantcluster.Client
+	infraClusterClient  infracluster.Client
+	tenantClusterClient tenantcluster.Client
 }
 
 // New creates provider vm instance
-func New(infraClusterClientBuilder infracluster.ClientBuilderFuncType, tenantClusterClient tenantcluster.Client) ProviderVM {
+func New(infraClusterClient infracluster.Client, tenantClusterClient tenantcluster.Client) ProviderVM {
 	return &manager{
-		tenantClusterClient:       tenantClusterClient,
-		infraClusterClientBuilder: infraClusterClientBuilder,
+		tenantClusterClient: tenantClusterClient,
+		infraClusterClient:  infraClusterClient,
 	}
 }
 
 // Create creates machine if it does not exists.
 func (m *manager) Create(machine *machinev1.Machine) (resultErr error) {
-	machineScope, err := newMachineScope(machine, m.tenantClusterClient, m.infraClusterClientBuilder)
+	machineScope, err := newMachineScope(machine, m.infraClusterClient, m.tenantClusterClient)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func (m *manager) Create(machine *machinev1.Machine) (resultErr error) {
 
 // delete deletes machine
 func (m *manager) Delete(machine *machinev1.Machine) error {
-	machineScope, err := newMachineScope(machine, m.tenantClusterClient, m.infraClusterClientBuilder)
+	machineScope, err := newMachineScope(machine, m.infraClusterClient, m.tenantClusterClient)
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (m *manager) Delete(machine *machinev1.Machine) error {
 
 // update finds a vm and reconciles the machine resource status against it.
 func (m *manager) Update(machine *machinev1.Machine) (wasUpdated bool, resultErr error) {
-	machineScope, err := newMachineScope(machine, m.tenantClusterClient, m.infraClusterClientBuilder)
+	machineScope, err := newMachineScope(machine, m.infraClusterClient, m.tenantClusterClient)
 	if err != nil {
 		return false, err
 	}
@@ -224,7 +224,7 @@ func (m *manager) syncMachine(vm *kubevirtapiv1.VirtualMachine, machineScope *ma
 
 // exists returns true if machine exists.
 func (m *manager) Exists(machine *machinev1.Machine) (bool, error) {
-	machineScope, err := newMachineScope(machine, m.tenantClusterClient, m.infraClusterClientBuilder)
+	machineScope, err := newMachineScope(machine, m.infraClusterClient, m.tenantClusterClient)
 	if err != nil {
 		return false, err
 	}
