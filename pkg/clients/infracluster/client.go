@@ -55,12 +55,12 @@ type Client interface {
 }
 
 var (
-	vmRes = schema.GroupVersionResource{
+	vmResource = schema.GroupVersionResource{
 		Group:    kubevirtapiv1.GroupVersion.Group,
 		Version:  kubevirtapiv1.GroupVersion.Version,
 		Resource: "virtualmachines",
 	}
-	vmiRes = schema.GroupVersionResource{
+	vmiResource = schema.GroupVersionResource{
 		Group:    kubevirtapiv1.GroupVersion.Group,
 		Version:  kubevirtapiv1.GroupVersion.Version,
 		Resource: "virtualmachinesinstance",
@@ -110,18 +110,18 @@ func New(ctx context.Context, tenantClusterKubernetesClient tenantcluster.Client
 }
 
 func (c *client) CreateVirtualMachine(ctx context.Context, namespace string, newVM *kubevirtapiv1.VirtualMachine) (*kubevirtapiv1.VirtualMachine, error) {
-	if err := c.createResource(ctx, newVM, namespace, vmRes); err != nil {
+	if err := c.createResource(ctx, newVM, namespace, vmResource); err != nil {
 		return nil, err
 	}
 	return newVM, nil
 }
 
 func (c *client) DeleteVirtualMachine(ctx context.Context, namespace string, name string, options *metav1.DeleteOptions) error {
-	return c.deleteResource(ctx, namespace, name, vmRes, options)
+	return c.deleteResource(ctx, namespace, name, vmResource, options)
 }
 
 func (c *client) GetVirtualMachine(ctx context.Context, namespace string, name string, options *metav1.GetOptions) (*kubevirtapiv1.VirtualMachine, error) {
-	resp, err := c.getResource(ctx, namespace, name, vmRes, options)
+	resp, err := c.getResource(ctx, namespace, name, vmResource, options)
 	if err != nil {
 		if apimachineryerrors.IsNotFound(err) {
 			return nil, err
@@ -134,7 +134,7 @@ func (c *client) GetVirtualMachine(ctx context.Context, namespace string, name s
 }
 
 func (c *client) ListVirtualMachine(ctx context.Context, namespace string, options metav1.ListOptions) (*kubevirtapiv1.VirtualMachineList, error) {
-	resp, err := c.listResource(ctx, namespace, vmRes, options)
+	resp, err := c.listResource(ctx, namespace, vmResource, options)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list VirtualMachine")
 	}
@@ -144,14 +144,14 @@ func (c *client) ListVirtualMachine(ctx context.Context, namespace string, optio
 }
 
 func (c *client) UpdateVirtualMachine(ctx context.Context, namespace string, vm *kubevirtapiv1.VirtualMachine) (*kubevirtapiv1.VirtualMachine, error) {
-	if err := c.updateResource(ctx, namespace, vm.Name, vmRes, vm); err != nil {
+	if err := c.updateResource(ctx, namespace, vm.Name, vmResource, vm); err != nil {
 		return nil, err
 	}
 	return vm, nil
 }
 
 func (c *client) GetVirtualMachineInstance(ctx context.Context, namespace string, name string, options *metav1.GetOptions) (*kubevirtapiv1.VirtualMachineInstance, error) {
-	resp, err := c.getResource(ctx, namespace, name, vmiRes, options)
+	resp, err := c.getResource(ctx, namespace, name, vmiResource, options)
 	if err != nil {
 		if apimachineryerrors.IsNotFound(err) {
 			return nil, err
