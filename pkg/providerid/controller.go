@@ -88,7 +88,7 @@ func (r *providerIDReconciler) getVMName(nodeName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	vmi, err := r.infraClusterClient.GetVirtualMachineInstance(infraClusterNamespace, nodeName, &v1.GetOptions{})
+	vmi, err := r.infraClusterClient.GetVirtualMachineInstance(context.Background(), infraClusterNamespace, nodeName, &v1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

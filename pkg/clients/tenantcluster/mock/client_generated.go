@@ -5,6 +5,7 @@
 package mock
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	v1beta1 "github.com/openshift/machine-api-operator/pkg/apis/machine/v1beta1"
 	v1 "k8s.io/api/core/v1"
@@ -63,18 +64,18 @@ func (mr *MockClientMockRecorder) StatusPatchMachine(machine, originMachineCopy 
 }
 
 // GetSecret mocks base method
-func (m *MockClient) GetSecret(secretName, namespace string) (*v1.Secret, error) {
+func (m *MockClient) GetSecret(ctx context.Context, secretName, namespace string) (*v1.Secret, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecret", secretName, namespace)
+	ret := m.ctrl.Call(m, "GetSecret", ctx, secretName, namespace)
 	ret0, _ := ret[0].(*v1.Secret)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSecret indicates an expected call of GetSecret
-func (mr *MockClientMockRecorder) GetSecret(secretName, namespace interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) GetSecret(ctx, secretName, namespace interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockClient)(nil).GetSecret), secretName, namespace)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockClient)(nil).GetSecret), ctx, secretName, namespace)
 }
 
 // GetNamespace mocks base method

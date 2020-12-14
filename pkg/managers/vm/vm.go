@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -249,27 +250,27 @@ func (m *manager) Exists(machine *machinev1.Machine) (bool, error) {
 }
 
 func (m *manager) createInfraClusterVM(virtualMachine *kubevirtapiv1.VirtualMachine, machineScope *machineScope) (*kubevirtapiv1.VirtualMachine, error) {
-	return machineScope.infraClusterClient.CreateVirtualMachine(virtualMachine.Namespace, virtualMachine)
+	return machineScope.infraClusterClient.CreateVirtualMachine(context.Background(), virtualMachine.Namespace, virtualMachine)
 }
 
 func (m *manager) createInfraClusterSecret(secret *corev1.Secret, machineScope *machineScope) (*corev1.Secret, error) {
-	return machineScope.infraClusterClient.CreateSecret(secret.Namespace, secret)
+	return machineScope.infraClusterClient.CreateSecret(context.Background(), secret.Namespace, secret)
 }
 
 func (m *manager) getInraClusterVM(vmName, vmNamespace string, machineScope *machineScope) (*kubevirtapiv1.VirtualMachine, error) {
-	return machineScope.infraClusterClient.GetVirtualMachine(vmNamespace, vmName, &k8smetav1.GetOptions{})
+	return machineScope.infraClusterClient.GetVirtualMachine(context.Background(), vmNamespace, vmName, &k8smetav1.GetOptions{})
 }
 func (m *manager) getInraClusterVMI(vmName, vmNamespace string, machineScope *machineScope) (*kubevirtapiv1.VirtualMachineInstance, error) {
-	return machineScope.infraClusterClient.GetVirtualMachineInstance(vmNamespace, vmName, &k8smetav1.GetOptions{})
+	return machineScope.infraClusterClient.GetVirtualMachineInstance(context.Background(), vmNamespace, vmName, &k8smetav1.GetOptions{})
 }
 
 func (m *manager) deleteInraClusterVM(vmName, vmNamespace string, machineScope *machineScope) error {
 	gracePeriod := int64(10)
-	return machineScope.infraClusterClient.DeleteVirtualMachine(vmNamespace, vmName, &k8smetav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+	return machineScope.infraClusterClient.DeleteVirtualMachine(context.Background(), vmNamespace, vmName, &k8smetav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
 }
 
 func (m *manager) updateInraClusterVM(updatedVM *kubevirtapiv1.VirtualMachine, machineScope *machineScope) (*kubevirtapiv1.VirtualMachine, error) {
-	return machineScope.infraClusterClient.UpdateVirtualMachine(updatedVM.Namespace, updatedVM)
+	return machineScope.infraClusterClient.UpdateVirtualMachine(context.Background(), updatedVM.Namespace, updatedVM)
 }
 
 // isMaster returns true if the machine is part of a cluster's control plane

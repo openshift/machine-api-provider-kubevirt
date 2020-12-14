@@ -5,10 +5,10 @@
 package mock
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 	v10 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	types "k8s.io/apimachinery/pkg/types"
 	v11 "kubevirt.io/client-go/api/v1"
 	reflect "reflect"
 )
@@ -37,167 +37,105 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // CreateVirtualMachine mocks base method
-func (m *MockClient) CreateVirtualMachine(namespace string, newVM *v11.VirtualMachine) (*v11.VirtualMachine, error) {
+func (m *MockClient) CreateVirtualMachine(ctx context.Context, namespace string, newVM *v11.VirtualMachine) (*v11.VirtualMachine, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateVirtualMachine", namespace, newVM)
+	ret := m.ctrl.Call(m, "CreateVirtualMachine", ctx, namespace, newVM)
 	ret0, _ := ret[0].(*v11.VirtualMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateVirtualMachine indicates an expected call of CreateVirtualMachine
-func (mr *MockClientMockRecorder) CreateVirtualMachine(namespace, newVM interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) CreateVirtualMachine(ctx, namespace, newVM interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVirtualMachine", reflect.TypeOf((*MockClient)(nil).CreateVirtualMachine), namespace, newVM)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVirtualMachine", reflect.TypeOf((*MockClient)(nil).CreateVirtualMachine), ctx, namespace, newVM)
 }
 
 // DeleteVirtualMachine mocks base method
-func (m *MockClient) DeleteVirtualMachine(namespace, name string, options *v10.DeleteOptions) error {
+func (m *MockClient) DeleteVirtualMachine(ctx context.Context, namespace, name string, options *v10.DeleteOptions) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteVirtualMachine", namespace, name, options)
+	ret := m.ctrl.Call(m, "DeleteVirtualMachine", ctx, namespace, name, options)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteVirtualMachine indicates an expected call of DeleteVirtualMachine
-func (mr *MockClientMockRecorder) DeleteVirtualMachine(namespace, name, options interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) DeleteVirtualMachine(ctx, namespace, name, options interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVirtualMachine", reflect.TypeOf((*MockClient)(nil).DeleteVirtualMachine), namespace, name, options)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVirtualMachine", reflect.TypeOf((*MockClient)(nil).DeleteVirtualMachine), ctx, namespace, name, options)
 }
 
 // GetVirtualMachine mocks base method
-func (m *MockClient) GetVirtualMachine(namespace, name string, options *v10.GetOptions) (*v11.VirtualMachine, error) {
+func (m *MockClient) GetVirtualMachine(ctx context.Context, namespace, name string, options *v10.GetOptions) (*v11.VirtualMachine, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetVirtualMachine", namespace, name, options)
+	ret := m.ctrl.Call(m, "GetVirtualMachine", ctx, namespace, name, options)
 	ret0, _ := ret[0].(*v11.VirtualMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetVirtualMachine indicates an expected call of GetVirtualMachine
-func (mr *MockClientMockRecorder) GetVirtualMachine(namespace, name, options interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) GetVirtualMachine(ctx, namespace, name, options interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVirtualMachine", reflect.TypeOf((*MockClient)(nil).GetVirtualMachine), namespace, name, options)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVirtualMachine", reflect.TypeOf((*MockClient)(nil).GetVirtualMachine), ctx, namespace, name, options)
 }
 
 // GetVirtualMachineInstance mocks base method
-func (m *MockClient) GetVirtualMachineInstance(namespace, name string, options *v10.GetOptions) (*v11.VirtualMachineInstance, error) {
+func (m *MockClient) GetVirtualMachineInstance(ctx context.Context, namespace, name string, options *v10.GetOptions) (*v11.VirtualMachineInstance, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetVirtualMachineInstance", namespace, name, options)
+	ret := m.ctrl.Call(m, "GetVirtualMachineInstance", ctx, namespace, name, options)
 	ret0, _ := ret[0].(*v11.VirtualMachineInstance)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetVirtualMachineInstance indicates an expected call of GetVirtualMachineInstance
-func (mr *MockClientMockRecorder) GetVirtualMachineInstance(namespace, name, options interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) GetVirtualMachineInstance(ctx, namespace, name, options interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVirtualMachineInstance", reflect.TypeOf((*MockClient)(nil).GetVirtualMachineInstance), namespace, name, options)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVirtualMachineInstance", reflect.TypeOf((*MockClient)(nil).GetVirtualMachineInstance), ctx, namespace, name, options)
 }
 
 // ListVirtualMachine mocks base method
-func (m *MockClient) ListVirtualMachine(namespace string, options *v10.ListOptions) (*v11.VirtualMachineList, error) {
+func (m *MockClient) ListVirtualMachine(ctx context.Context, namespace string, options v10.ListOptions) (*v11.VirtualMachineList, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListVirtualMachine", namespace, options)
+	ret := m.ctrl.Call(m, "ListVirtualMachine", ctx, namespace, options)
 	ret0, _ := ret[0].(*v11.VirtualMachineList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListVirtualMachine indicates an expected call of ListVirtualMachine
-func (mr *MockClientMockRecorder) ListVirtualMachine(namespace, options interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) ListVirtualMachine(ctx, namespace, options interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListVirtualMachine", reflect.TypeOf((*MockClient)(nil).ListVirtualMachine), namespace, options)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListVirtualMachine", reflect.TypeOf((*MockClient)(nil).ListVirtualMachine), ctx, namespace, options)
 }
 
 // UpdateVirtualMachine mocks base method
-func (m *MockClient) UpdateVirtualMachine(namespace string, vm *v11.VirtualMachine) (*v11.VirtualMachine, error) {
+func (m *MockClient) UpdateVirtualMachine(ctx context.Context, namespace string, vm *v11.VirtualMachine) (*v11.VirtualMachine, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateVirtualMachine", namespace, vm)
+	ret := m.ctrl.Call(m, "UpdateVirtualMachine", ctx, namespace, vm)
 	ret0, _ := ret[0].(*v11.VirtualMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpdateVirtualMachine indicates an expected call of UpdateVirtualMachine
-func (mr *MockClientMockRecorder) UpdateVirtualMachine(namespace, vm interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) UpdateVirtualMachine(ctx, namespace, vm interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateVirtualMachine", reflect.TypeOf((*MockClient)(nil).UpdateVirtualMachine), namespace, vm)
-}
-
-// PatchVirtualMachine mocks base method
-func (m *MockClient) PatchVirtualMachine(namespace, name string, pt types.PatchType, data []byte, subresources ...string) (*v11.VirtualMachine, error) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{namespace, name, pt, data}
-	for _, a := range subresources {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "PatchVirtualMachine", varargs...)
-	ret0, _ := ret[0].(*v11.VirtualMachine)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PatchVirtualMachine indicates an expected call of PatchVirtualMachine
-func (mr *MockClientMockRecorder) PatchVirtualMachine(namespace, name, pt, data interface{}, subresources ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{namespace, name, pt, data}, subresources...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PatchVirtualMachine", reflect.TypeOf((*MockClient)(nil).PatchVirtualMachine), varargs...)
-}
-
-// RestartVirtualMachine mocks base method
-func (m *MockClient) RestartVirtualMachine(namespace, name string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RestartVirtualMachine", namespace, name)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RestartVirtualMachine indicates an expected call of RestartVirtualMachine
-func (mr *MockClientMockRecorder) RestartVirtualMachine(namespace, name interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestartVirtualMachine", reflect.TypeOf((*MockClient)(nil).RestartVirtualMachine), namespace, name)
-}
-
-// StartVirtualMachine mocks base method
-func (m *MockClient) StartVirtualMachine(namespace, name string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StartVirtualMachine", namespace, name)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StartVirtualMachine indicates an expected call of StartVirtualMachine
-func (mr *MockClientMockRecorder) StartVirtualMachine(namespace, name interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartVirtualMachine", reflect.TypeOf((*MockClient)(nil).StartVirtualMachine), namespace, name)
-}
-
-// StopVirtualMachine mocks base method
-func (m *MockClient) StopVirtualMachine(namespace, name string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StopVirtualMachine", namespace, name)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StopVirtualMachine indicates an expected call of StopVirtualMachine
-func (mr *MockClientMockRecorder) StopVirtualMachine(namespace, name interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopVirtualMachine", reflect.TypeOf((*MockClient)(nil).StopVirtualMachine), namespace, name)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateVirtualMachine", reflect.TypeOf((*MockClient)(nil).UpdateVirtualMachine), ctx, namespace, vm)
 }
 
 // CreateSecret mocks base method
-func (m *MockClient) CreateSecret(namespace string, newSecret *v1.Secret) (*v1.Secret, error) {
+func (m *MockClient) CreateSecret(ctx context.Context, namespace string, newSecret *v1.Secret) (*v1.Secret, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateSecret", namespace, newSecret)
+	ret := m.ctrl.Call(m, "CreateSecret", ctx, namespace, newSecret)
 	ret0, _ := ret[0].(*v1.Secret)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateSecret indicates an expected call of CreateSecret
-func (mr *MockClientMockRecorder) CreateSecret(namespace, newSecret interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) CreateSecret(ctx, namespace, newSecret interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecret", reflect.TypeOf((*MockClient)(nil).CreateSecret), namespace, newSecret)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecret", reflect.TypeOf((*MockClient)(nil).CreateSecret), ctx, namespace, newSecret)
 }
