@@ -227,19 +227,8 @@ func (s *machineScope) updateAllowed() bool {
 	return s.machine.Spec.ProviderID != nil && *s.machine.Spec.ProviderID != "" && (s.machine.Status.LastUpdated == nil || s.machine.Status.LastUpdated.Add(requeueAfterSeconds*time.Second).After(time.Now()))
 }
 
-func buildDataVolumeDiskName(virtualMachineName string) string {
-	return buildVolumeName(virtualMachineName, defaultDataVolumeDiskName)
-}
-func buildCloudInitVolumeDiskName(virtualMachineName string) string {
-	return buildVolumeName(virtualMachineName, defaultCloudInitVolumeDiskName)
-}
-
 func buildBootVolumeName(virtualMachineName string) string {
-	return buildVolumeName(virtualMachineName, defaultBootVolumeDiskName)
-}
-
-func buildVolumeName(virtualMachineName, suffixVolumeName string) string {
-	return fmt.Sprintf("%s-%s", virtualMachineName, suffixVolumeName)
+	return fmt.Sprintf("%s-%s", virtualMachineName, defaultBootVolumeDiskName)
 }
 
 func (s *machineScope) buildVMITemplate(namespace string) (*kubevirtapiv1.VirtualMachineInstanceTemplateSpec, error) {
@@ -256,7 +245,7 @@ func (s *machineScope) buildVMITemplate(namespace string) (*kubevirtapiv1.Virtua
 	template.Spec = kubevirtapiv1.VirtualMachineInstanceSpec{}
 	template.Spec.Volumes = []kubevirtapiv1.Volume{
 		{
-			Name: buildDataVolumeDiskName(virtualMachineName),
+			Name: defaultDataVolumeDiskName,
 			VolumeSource: kubevirtapiv1.VolumeSource{
 				DataVolume: &kubevirtapiv1.DataVolumeSource{
 					Name: buildBootVolumeName(virtualMachineName),
@@ -264,7 +253,7 @@ func (s *machineScope) buildVMITemplate(namespace string) (*kubevirtapiv1.Virtua
 			},
 		},
 		{
-			Name: buildCloudInitVolumeDiskName(virtualMachineName),
+			Name: defaultCloudInitVolumeDiskName,
 			VolumeSource: kubevirtapiv1.VolumeSource{
 				CloudInitConfigDrive: &kubevirtapiv1.CloudInitConfigDriveSource{
 					UserDataSecretRef: &corev1.LocalObjectReference{
@@ -307,7 +296,7 @@ func (s *machineScope) buildVMITemplate(namespace string) (*kubevirtapiv1.Virtua
 	template.Spec.Domain.Devices = kubevirtapiv1.Devices{
 		Disks: []kubevirtapiv1.Disk{
 			{
-				Name: buildDataVolumeDiskName(virtualMachineName),
+				Name: defaultDataVolumeDiskName,
 				DiskDevice: kubevirtapiv1.DiskDevice{
 					Disk: &kubevirtapiv1.DiskTarget{
 						Bus: defaultBus,
@@ -315,7 +304,7 @@ func (s *machineScope) buildVMITemplate(namespace string) (*kubevirtapiv1.Virtua
 				},
 			},
 			{
-				Name: buildCloudInitVolumeDiskName(virtualMachineName),
+				Name: defaultCloudInitVolumeDiskName,
 				DiskDevice: kubevirtapiv1.DiskDevice{
 					Disk: &kubevirtapiv1.DiskTarget{
 						Bus: defaultBus,
