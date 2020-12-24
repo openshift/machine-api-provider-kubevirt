@@ -46,6 +46,7 @@ const (
 	APIVersion                        = "kubevirt.io/v1alpha3"
 	Kind                              = "VirtualMachine"
 	mainNetworkName                   = "main"
+	terminationGracePeriodSeconds     = 600
 )
 
 const providerIDFormat = "kubevirt://%s/%s"
@@ -242,7 +243,10 @@ func (s *machineScope) buildVMITemplate(namespace string) (*kubevirtapiv1.Virtua
 
 	ignitionSecretName := buildIgnitionSecretName(virtualMachineName)
 
-	template.Spec = kubevirtapiv1.VirtualMachineInstanceSpec{}
+	terminationGracePeriod := int64(terminationGracePeriodSeconds)
+	template.Spec = kubevirtapiv1.VirtualMachineInstanceSpec{
+		TerminationGracePeriodSeconds: &terminationGracePeriod,
+	}
 	template.Spec.Volumes = []kubevirtapiv1.Volume{
 		{
 			Name: defaultDataVolumeDiskName,

@@ -92,7 +92,9 @@ func stubBuildVMITemplate(s *machineScope) *kubevirtapiv1.VirtualMachineInstance
 		Labels: map[string]string{"kubevirt.io/vm": virtualMachineName, "name": virtualMachineName},
 	}
 
-	template.Spec = kubevirtapiv1.VirtualMachineInstanceSpec{}
+	template.Spec = kubevirtapiv1.VirtualMachineInstanceSpec{
+		TerminationGracePeriodSeconds: func(src int64) *int64 { return &src }(600),
+	}
 	template.Spec.Volumes = []kubevirtapiv1.Volume{
 		{
 			Name: defaultDataVolumeDiskName,
