@@ -17,14 +17,10 @@ limitations under the License.
 package vm
 
 import (
-	"encoding/json"
-	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	machinev1 "github.com/openshift/machine-api-operator/pkg/apis/machine/v1beta1"
-	machinecontroller "github.com/openshift/machine-api-operator/pkg/controller/machine"
 	kubevirtapiv1 "kubevirt.io/client-go/api/v1"
 )
 
@@ -93,34 +89,12 @@ func shouldUpdateCondition(newCondition, existingCondition *kubevirtapiv1.Virtua
 	return newCondition.Reason != existingCondition.Reason || newCondition.Message != existingCondition.Message
 }
 
-// TODO There is only one kind of VirtualMachineConditionType: VirtualMachineFailure
-//      How should report on success?
-//      Is Failure/false is good enough or need to add type to client-go?
-func conditionSuccess() kubevirtapiv1.VirtualMachineCondition {
-	return kubevirtapiv1.VirtualMachineCondition{
-		Type:    kubevirtapiv1.VirtualMachineFailure,
-		Status:  corev1.ConditionFalse,
-		Reason:  "MachineCreationSucceeded",
-		Message: "Machine successfully created",
-	}
-}
-
 func conditionFailed() kubevirtapiv1.VirtualMachineCondition {
 	return kubevirtapiv1.VirtualMachineCondition{
 		Type:   kubevirtapiv1.VirtualMachineFailure,
 		Status: corev1.ConditionTrue,
 		Reason: "MachineCreationFailed",
 	}
-}
-
-// validateMachine check the label that a machine must have to identify the cluster to which it belongs is present.
-func validateMachine(machine machinev1.Machine) error {
-	// TODO: insert a validation on machine labels
-	if machine.Labels[machinev1.MachineClusterIDLabel] == "" {
-		return machinecontroller.InvalidMachineConfiguration("%v: missing %q label", machine.GetName(), machinev1.MachineClusterIDLabel)
-	}
-
-	return nil
 }
 
 // getClusterID get cluster ID by machine.openshift.io/cluster-api-cluster label
@@ -131,30 +105,4 @@ func getClusterID(machine *machinev1.Machine) (string, bool) {
 		clusterID, ok = machine.Labels[upstreamMachineClusterIDLabel]
 	}
 	return clusterID, ok
-}
-
-func addHostnameToUserData(src []byte, hostname string) ([]byte, error) {
-	var dataMap map[string]interface{}
-	json.Unmarshal([]byte(src), &dataMap)
-	if _, ok := dataMap["storage"]; !ok {
-		dataMap["storage"] = map[string]interface{}{}
-	}
-	storage := (dataMap["storage"]).(map[string]interface{})
-	if _, ok := storage["files"]; !ok {
-		storage["files"] = []map[string]interface{}{}
-	}
-	newFile := map[string]interface{}{
-		"filesystem": "root",
-		"path":       "/etc/hostname",
-		"mode":       420,
-	}
-	newFile["contents"] = map[string]interface{}{
-		"source": fmt.Sprintf("data:,%s", hostname),
-	}
-	storage["files"] = append(storage["files"].([]map[string]interface{}), newFile)
-	result, err := json.Marshal(dataMap)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
 }

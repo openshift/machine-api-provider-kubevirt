@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 
+	"github.com/openshift/cluster-api-provider-kubevirt/pkg/machinescope"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/managers/vm"
 )
 
@@ -39,22 +40,31 @@ const (
 
 // Actuator is responsible for performing machine reconciliation.
 type Actuator struct {
-	eventRecorder record.EventRecorder
-	providerVM    vm.ProviderVM
+	eventRecorder       record.EventRecorder
+	providerVM          vm.ProviderVM
+	machineScopeCreator machinescope.MachineScopeCreator
 }
 
 // New returns an actuator.
-func New(providerVM vm.ProviderVM, eventRecorder record.EventRecorder) *Actuator {
+func New(providerVM vm.ProviderVM,
+	eventRecorder record.EventRecorder,
+	machineScopeCreator machinescope.MachineScopeCreator) *Actuator {
 	return &Actuator{
-		providerVM:    providerVM,
-		eventRecorder: eventRecorder,
+		providerVM:          providerVM,
+		eventRecorder:       eventRecorder,
+		machineScopeCreator: machineScopeCreator,
 	}
 }
 
 // Set corresponding event based on error. It also returns the original error
 // for convenience, so callers can do "return handleMachineError(...)".
 func (a *Actuator) handleMachineError(machine *machinev1.Machine, err error, eventAction string) error {
-	klog.Errorf("%v error: %v", vm.GetMachineName(machine), err)
+	machineScope, err := a.machineScopeCreator.CreateMachineScope(machine)
+	if err != nil {
+		return err
+	}
+
+	klog.Errorf("%v error: %v", machineScope.GetMachineName(), err)
 	if eventAction != noEventAction {
 		a.eventRecorder.Eventf(machine, corev1.EventTypeWarning, "Failed"+eventAction, "%v", err)
 	}
@@ -63,39 +73,54 @@ func (a *Actuator) handleMachineError(machine *machinev1.Machine, err error, eve
 
 // Create creates a machine and is invoked by the machine controller.
 func (a *Actuator) Create(ctx context.Context, machine *machinev1.Machine) error {
-	klog.Infof("%s: actuator creating machine", vm.GetMachineName(machine))
+	machineScope, err := a.machineScopeCreator.CreateMachineScope(machine)
+	if err != nil {
+		return err
+	}
 
-	if err := a.providerVM.Create(machine); err != nil {
-		fmtErr := fmt.Errorf(vmsFailFmt, vm.GetMachineName(machine), createEventAction, err)
+	klog.Infof("%s: actuator creating machine", machineScope.GetMachineName())
+
+	if err := a.providerVM.Create(machineScope); err != nil {
+		fmtErr := fmt.Errorf(vmsFailFmt, machineScope.GetMachineName(), createEventAction, err)
 		return a.handleMachineError(machine, fmtErr, createEventAction)
 	}
 
-	a.eventRecorder.Eventf(machine, corev1.EventTypeNormal, createEventAction, "Created Machine %v", vm.GetMachineName(machine))
+	a.eventRecorder.Eventf(machine, corev1.EventTypeNormal, createEventAction, "Created Machine %v", machineScope.GetMachineName())
 	return nil
 }
 
 // Exists determines if the given machine currently exists.
 // A machine which is not terminated is considered as existing.
 func (a *Actuator) Exists(ctx context.Context, machine *machinev1.Machine) (bool, error) {
-	klog.Infof("%s: actuator checking if machine exists", vm.GetMachineName(machine))
+	machineScope, err := a.machineScopeCreator.CreateMachineScope(machine)
+	if err != nil {
+		return false, err
+	}
 
-	return a.providerVM.Exists(machine)
+	klog.Infof("%s: actuator checking if machine exists", machineScope.GetMachineName())
+
+	return a.providerVM.Exists(machineScope)
 }
 
 // Update attempts to sync machine state with an existing instance.
 func (a *Actuator) Update(ctx context.Context, machine *machinev1.Machine) error {
-	klog.Infof("%s: actuator updating machine", vm.GetMachineName(machine))
+	machineScope, err := a.machineScopeCreator.CreateMachineScope(machine)
+	if err != nil {
+		return err
+	}
 
-	wasUpdated, err := a.providerVM.Update(machine)
+	klog.Infof("%s: actuator updating machine", machineScope.GetMachineName())
+
+	wasUpdated, err := a.providerVM.Update(machineScope)
 	if err != nil {
 
-		fmtErr := fmt.Errorf(vmsFailFmt, vm.GetMachineName(machine), updateEventAction, err)
+		fmtErr := fmt.Errorf(vmsFailFmt, machineScope.GetMachineName(), updateEventAction, err)
 		return a.handleMachineError(machine, fmtErr, updateEventAction)
 	}
 
 	// Create event only if machine object was modified
 	if wasUpdated {
-		a.eventRecorder.Eventf(machine, corev1.EventTypeNormal, updateEventAction, "Updated Machine %v", vm.GetMachineName(machine))
+		a.eventRecorder.Eventf(machine, corev1.EventTypeNormal, updateEventAction, "Updated Machine %v", machineScope.GetMachineName())
 	}
 
 	return nil
@@ -103,13 +128,18 @@ func (a *Actuator) Update(ctx context.Context, machine *machinev1.Machine) error
 
 // Delete deletes a machine and updates its finalizer
 func (a *Actuator) Delete(ctx context.Context, machine *machinev1.Machine) error {
-	klog.Infof("%s: actuator deleting machine", vm.GetMachineName(machine))
+	machineScope, err := a.machineScopeCreator.CreateMachineScope(machine)
+	if err != nil {
+		return err
+	}
 
-	if err := a.providerVM.Delete(machine); err != nil {
-		fmtErr := fmt.Errorf(vmsFailFmt, vm.GetMachineName(machine), deleteEventAction, err)
+	klog.Infof("%s: actuator deleting machine", machineScope.GetMachineName())
+
+	if err := a.providerVM.Delete(machineScope); err != nil {
+		fmtErr := fmt.Errorf(vmsFailFmt, machineScope.GetMachineName(), deleteEventAction, err)
 		return a.handleMachineError(machine, fmtErr, deleteEventAction)
 	}
 
-	a.eventRecorder.Eventf(machine, corev1.EventTypeNormal, deleteEventAction, "Deleted machine %v", vm.GetMachineName(machine))
+	a.eventRecorder.Eventf(machine, corev1.EventTypeNormal, deleteEventAction, "Deleted machine %v", machineScope.GetMachineName())
 	return nil
 }

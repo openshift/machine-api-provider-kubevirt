@@ -22,6 +22,7 @@ import (
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/actuator"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/infracluster"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/tenantcluster"
+	"github.com/openshift/cluster-api-provider-kubevirt/pkg/machinescope"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/managers/vm"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/providerid"
 	mapiv1beta1 "github.com/openshift/machine-api-operator/pkg/apis/machine/v1beta1"
@@ -133,11 +134,14 @@ func main() {
 		entryLog.Error(err, "Failed to create infracluster client from configuration")
 	}
 
+	// Initialize machineScope creator
+	machineScopeCreator := machinescope.New(tenantClusterClient)
+
 	// Initialize provider vm manager (infraClusterClientBuilder would be the function infracluster.New)
 	providerVM := vm.New(infraClusterClient, tenantClusterClient)
 
 	// Initialize machine actuator.
-	machineActuator := actuator.New(providerVM, mgr.GetEventRecorderFor("kubevirtcontroller"))
+	machineActuator := actuator.New(providerVM, mgr.GetEventRecorderFor("kubevirtcontroller"), machineScopeCreator)
 
 	// Register Actuator on machine-controller
 	if err := machine.AddWithActuator(mgr, machineActuator); err != nil {
