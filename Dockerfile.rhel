@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM registry.svc.ci.openshift.org/ocp/builder:rhel-8-golang-1.15-openshift-4.7 AS builder
+FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.15-openshift-4.7 AS builder
 
 LABEL   com.redhat.component="machine-api" \
         name="cluster-api-provider-kubevirt" \
@@ -23,5 +23,5 @@ WORKDIR /go/src/github.com/kubevirt/cluster-api-provider-kubevirt
 COPY . .
 RUN make build NO_DOCKER=1
 
-FROM registry.svc.ci.openshift.org/ocp/4.7:base
+FROM registry.ci.openshift.org/ocp/4.7:base
 COPY --from=builder /go/src/github.com/kubevirt/cluster-api-provider-kubevirt/bin/machine-controller-manager /
