@@ -1,4 +1,4 @@
-package vm
+package kubevirt
 
 import (
 	"context"
@@ -23,15 +23,15 @@ const (
 	masterLabel              = "node-role.kubevirt.io/master"
 )
 
-// ProviderVM runs the logic to reconciles a machine resource towards its desired state
-type ProviderVM interface {
+// KubevirtVM runs the logic to reconciles a machine resource towards its desired state
+type KubevirtVM interface {
 	Create(machineScope machinescope.MachineScope) error
 	Delete(machineScope machinescope.MachineScope) error
 	Update(machineScope machinescope.MachineScope) (bool, error)
 	Exists(machineScope machinescope.MachineScope) (bool, error)
 }
 
-// manager is the struct which implement ProviderVM interface
+// manager is the struct which implement KubevirtVM interface
 // Use tenantClusterClient to access secret params assigned by user
 // Use infraClusterClientBuilder to create the infra cluster vms
 type manager struct {
@@ -40,7 +40,7 @@ type manager struct {
 }
 
 // New creates provider vm instance
-func New(infraClusterClient infracluster.Client, tenantClusterClient tenantcluster.Client) ProviderVM {
+func New(infraClusterClient infracluster.Client, tenantClusterClient tenantcluster.Client) KubevirtVM {
 	return &manager{
 		tenantClusterClient: tenantClusterClient,
 		infraClusterClient:  infraClusterClient,

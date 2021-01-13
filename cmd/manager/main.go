@@ -22,8 +22,8 @@ import (
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/actuator"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/infracluster"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/tenantcluster"
+	"github.com/openshift/cluster-api-provider-kubevirt/pkg/kubevirt"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/machinescope"
-	"github.com/openshift/cluster-api-provider-kubevirt/pkg/managers/vm"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/providerid"
 	mapiv1beta1 "github.com/openshift/machine-api-operator/pkg/apis/machine/v1beta1"
 	"github.com/openshift/machine-api-operator/pkg/controller/machine"
@@ -138,7 +138,7 @@ func main() {
 	machineScopeCreator := machinescope.New(tenantClusterClient)
 
 	// Initialize provider vm manager (infraClusterClientBuilder would be the function infracluster.New)
-	providerVM := vm.New(infraClusterClient, tenantClusterClient)
+	providerVM := kubevirt.New(infraClusterClient, tenantClusterClient)
 
 	// Initialize machine actuator.
 	machineActuator := actuator.New(providerVM, mgr.GetEventRecorderFor("kubevirtcontroller"), machineScopeCreator)

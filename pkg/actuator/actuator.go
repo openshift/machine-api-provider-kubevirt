@@ -25,8 +25,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 
+	"github.com/openshift/cluster-api-provider-kubevirt/pkg/kubevirt"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/machinescope"
-	"github.com/openshift/cluster-api-provider-kubevirt/pkg/managers/vm"
 )
 
 const (
@@ -41,16 +41,16 @@ const (
 // Actuator is responsible for performing machine reconciliation.
 type Actuator struct {
 	eventRecorder       record.EventRecorder
-	providerVM          vm.ProviderVM
+	kubevirtVM          kubevirt.KubevirtVM
 	machineScopeCreator machinescope.MachineScopeCreator
 }
 
 // New returns an actuator.
-func New(providerVM vm.ProviderVM,
+func New(kubevirtVM kubevirt.KubevirtVM,
 	eventRecorder record.EventRecorder,
 	machineScopeCreator machinescope.MachineScopeCreator) *Actuator {
 	return &Actuator{
-		providerVM:          providerVM,
+		kubevirtVM:          kubevirtVM,
 		eventRecorder:       eventRecorder,
 		machineScopeCreator: machineScopeCreator,
 	}
@@ -80,7 +80,7 @@ func (a *Actuator) Create(ctx context.Context, machine *machinev1.Machine) error
 
 	klog.Infof("%s: actuator creating machine", machineScope.GetMachineName())
 
-	if err := a.providerVM.Create(machineScope); err != nil {
+	if err := a.kubevirtVM.Create(machineScope); err != nil {
 		fmtErr := fmt.Errorf(vmsFailFmt, machineScope.GetMachineName(), createEventAction, err)
 		return a.handleMachineError(machine, fmtErr, createEventAction)
 	}
@@ -99,7 +99,7 @@ func (a *Actuator) Exists(ctx context.Context, machine *machinev1.Machine) (bool
 
 	klog.Infof("%s: actuator checking if machine exists", machineScope.GetMachineName())
 
-	return a.providerVM.Exists(machineScope)
+	return a.kubevirtVM.Exists(machineScope)
 }
 
 // Update attempts to sync machine state with an existing instance.
@@ -111,7 +111,7 @@ func (a *Actuator) Update(ctx context.Context, machine *machinev1.Machine) error
 
 	klog.Infof("%s: actuator updating machine", machineScope.GetMachineName())
 
-	wasUpdated, err := a.providerVM.Update(machineScope)
+	wasUpdated, err := a.kubevirtVM.Update(machineScope)
 	if err != nil {
 
 		fmtErr := fmt.Errorf(vmsFailFmt, machineScope.GetMachineName(), updateEventAction, err)
@@ -135,7 +135,7 @@ func (a *Actuator) Delete(ctx context.Context, machine *machinev1.Machine) error
 
 	klog.Infof("%s: actuator deleting machine", machineScope.GetMachineName())
 
-	if err := a.providerVM.Delete(machineScope); err != nil {
+	if err := a.kubevirtVM.Delete(machineScope); err != nil {
 		fmtErr := fmt.Errorf(vmsFailFmt, machineScope.GetMachineName(), deleteEventAction, err)
 		return a.handleMachineError(machine, fmtErr, deleteEventAction)
 	}
