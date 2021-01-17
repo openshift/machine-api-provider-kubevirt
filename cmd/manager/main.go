@@ -40,6 +40,7 @@ var (
 	leaseDuration = 120 * time.Second
 	renewDeadline = 110 * time.Second
 	retryPeriod   = 20 * time.Second
+	syncPeriod    = 10 * time.Minute
 )
 
 func main() {
@@ -101,6 +102,7 @@ func main() {
 		LeaseDuration:           leaderElectLeaseDuration,
 		MetricsBindAddress:      *metricsAddr,
 		HealthProbeBindAddress:  *healthAddr,
+		SyncPeriod:              &syncPeriod,
 		RetryPeriod:             &retryPeriod,
 		RenewDeadline:           &renewDeadline,
 	}
