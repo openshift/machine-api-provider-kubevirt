@@ -7,9 +7,11 @@ package providerid
 import (
 	"context"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,6 +26,7 @@ import (
 )
 
 const IDFormat = "kubevirt://%s/%s"
+const RETRY_INTERVAL_VM_NOTREADY = 60 * time.Second
 
 var _ reconcile.Reconciler = &providerIDReconciler{}
 
@@ -52,26 +55,48 @@ func (r *providerIDReconciler) Reconcile(request reconcile.Request) (reconcile.R
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, fmt.Errorf("error getting node: %v", err)
 	}
+	id, err := r.getVMName(node.Name)
+	if id == "" {
+		// Node doesn't exist in provider, deleting node object
+		klog.Info(
+			"Deleting Node from cluster since it has been removed in provider",
+			"node", request.NamespacedName)
+		return deleteNode(r.client, &node)
+	}
+	infraClusterNamespace, err := r.tenantClusterClient.GetNamespace()
 
 	if node.Spec.ProviderID != "" {
-		return reconcile.Result{}, nil
-	}
+		existingVM, err := r.infraClusterClient.GetVirtualMachine(context.Background(), infraClusterNamespace, id, &k8smetav1.GetOptions{})
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed getting VM: %v", err)
+		}
+		if !existingVM.Status.Ready {
+			klog.Info("Node VM status is not ready, requeuing for 1 min",
+				"Node", node.Name)
+			return reconcile.Result{Requeue: true, RequeueAfter: RETRY_INTERVAL_VM_NOTREADY}, nil
+		}
+	} else {
+		klog.Info("spec.ProviderID is empty, fetching from the infra-cluster", "node", request.NamespacedName)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 
-	klog.Info("spec.ProviderID is empty, fetching from the infra-cluster", "node", request.NamespacedName)
-	id, err := r.getVMName(node.Name)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 
-	infraClusterNamespace, err := r.tenantClusterClient.GetNamespace()
-	if err != nil {
-		return reconcile.Result{}, err
+		node.Spec.ProviderID = FormatProviderID(infraClusterNamespace, id)
+		err = r.client.Update(context.Background(), &node)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed updating node %s: %v", node.Name, err)
+		}
 	}
+	return reconcile.Result{}, nil
+}
 
-	node.Spec.ProviderID = FormatProviderID(infraClusterNamespace, id)
-	err = r.client.Update(context.Background(), &node)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed updating node %s: %v", node.Name, err)
+func deleteNode(client client.Client, node *corev1.Node) (reconcile.Result, error) {
+	if err := client.Delete(context.Background(), node); err != nil {
+		return reconcile.Result{}, fmt.Errorf("Error deleting node: %v, error is: %v", node.Name, err)
 	}
 	return reconcile.Result{}, nil
 }
