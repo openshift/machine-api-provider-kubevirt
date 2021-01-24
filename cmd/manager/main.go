@@ -87,7 +87,7 @@ func main() {
 	logf.SetLogger(logf.ZapLogger(false))
 	entryLog := log.WithName("entrypoint")
 
-	// Get a config to talk to the apiserver
+	// Get a config to talk to the apiserver test
 	cfg, err := config.GetConfig()
 	if err != nil {
 		klog.Fatalf("Error getting configuration: %v", err)
