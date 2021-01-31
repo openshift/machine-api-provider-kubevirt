@@ -2,16 +2,13 @@ package kubevirt
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/infracluster"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/machinescope"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/tenantcluster"
-	machinecontroller "github.com/openshift/machine-api-operator/pkg/controller/machine"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 	kubevirtapiv1 "kubevirt.io/client-go/api/v1"
@@ -21,158 +18,148 @@ const (
 	requeueAfterSeconds      = 20
 	requeueAfterFatalSeconds = 180
 	masterLabel              = "node-role.kubevirt.io/master"
+	idFormat                 = "kubevirt://%s/%s"
 )
 
+//go:generate mockgen -source=./kubevirt.go -destination=./mock/kubevirt_generated.go -package=mock
 // KubevirtVM runs the logic to reconciles a machine resource towards its desired state
 type KubevirtVM interface {
-	Create(machineScope machinescope.MachineScope) error
+	// Create creates resources in the InfraCluster for the provided Machine, if it does not exist
+	Create(machineScope machinescope.MachineScope, userData []byte) error
+	// Create deletes the resources of the provided Machine from the InfraCluster
 	Delete(machineScope machinescope.MachineScope) error
+	// Update updates the VirtualMachine of the provided Machine in the InfraCluster with the changes in the Machine
+	// Update finds the relevant VirtualMachine and reconciles the Machine resource status against it.
 	Update(machineScope machinescope.MachineScope) (bool, error)
-	Exists(machineScope machinescope.MachineScope) (bool, error)
+	// Exists check if the VirtualMachine of the provided Machine exists in the InfraCluster
+	Exists(machineName string, infraNamespace string) (bool, error)
 }
 
 // manager is the struct which implement KubevirtVM interface
-// Use tenantClusterClient to access secret params assigned by user
-// Use infraClusterClientBuilder to create the infra cluster vms
 type manager struct {
-	infraClusterClient  infracluster.Client
-	tenantClusterClient tenantcluster.Client
+	infraClusterClient infracluster.Client
 }
 
 // New creates provider vm instance
-func New(infraClusterClient infracluster.Client, tenantClusterClient tenantcluster.Client) KubevirtVM {
+func New(infraClusterClient infracluster.Client) KubevirtVM {
 	return &manager{
-		tenantClusterClient: tenantClusterClient,
-		infraClusterClient:  infraClusterClient,
+		infraClusterClient: infraClusterClient,
 	}
 }
 
-// Create creates machine if it does not exists.
-func (m *manager) Create(machineScope machinescope.MachineScope) (resultErr error) {
-	secretFromMachine, err := machineScope.CreateIgnitionSecretFromMachine()
+func (m *manager) Create(machineScope machinescope.MachineScope, userData []byte) (resultErr error) {
+	machineName := machineScope.GetMachineName()
+
+	fullUserData, err := addHostnameToUserData(userData, machineName)
 	if err != nil {
 		return err
 	}
-	if _, err := m.createInfraClusterSecret(secretFromMachine, machineScope); err != nil {
-		klog.Errorf("%s: error creating ignition secret: %v", machineScope.GetMachineName(), err)
-		conditionFailed := conditionFailed()
-		conditionFailed.Message = err.Error()
-		return fmt.Errorf("failed to create ignition secret: %w", err)
+
+	secretFromMachine := machineScope.CreateIgnitionSecretFromMachine(fullUserData)
+
+	if _, err := m.infraClusterClient.CreateSecret(context.Background(), secretFromMachine.Namespace, secretFromMachine); err != nil {
+		msg := fmt.Sprintf("%s: Error during Create: failed to create ignition secret in infraCluster, with error: %v", machineName, err)
+		klog.Errorf(msg)
+		return fmt.Errorf(msg)
 	}
 
 	virtualMachineFromMachine, err := machineScope.CreateVirtualMachineFromMachine()
 	if err != nil {
-		return err
+		msg := fmt.Sprintf("%s: Error during Create: failed to build Virtual Machine struct, with error: %v", machineName, err)
+		klog.Errorf(msg)
+		return fmt.Errorf(msg)
 	}
 
-	klog.Infof("%s: create machine", machineScope.GetMachineName())
-
-	defer func() {
-		// After the operation is done (success or failure)
-		// Update the machine object with the relevant changes
-		if err := machineScope.PatchMachine(); err != nil {
-			resultErr = err
-		}
-	}()
-
-	createdVM, err := m.createInfraClusterVM(virtualMachineFromMachine, machineScope)
-
+	createdVM, err := m.infraClusterClient.CreateVirtualMachine(context.Background(), virtualMachineFromMachine.Namespace, virtualMachineFromMachine)
 	if err != nil {
-		klog.Errorf("%s: error creating machine: %v", machineScope.GetMachineName(), err)
-		conditionFailed := conditionFailed()
-		conditionFailed.Message = err.Error()
-		return fmt.Errorf("failed to create virtual machine: %w", err)
+		msg := fmt.Sprintf("%s: Error during Create: failed to create Virtual Machine in infraCluster, with error: %v", machineName, err)
+		klog.Errorf(msg)
+		return fmt.Errorf(msg)
 	}
 
-	klog.Infof("Created Machine %v", machineScope.GetMachineName())
+	klog.Infof("%s: VirtualMachine was created in infracluster for the Machine", machineName)
 
-	if err := m.syncMachine(createdVM, machineScope); err != nil {
-		klog.Errorf("%s: fail syncing machine from vm: %v", machineScope.GetMachineName(), err)
-		return err
-	}
-
-	return nil
+	return m.syncMachine(*createdVM, machineScope, machineName, "Create")
 }
 
-// delete deletes machine
+func addHostnameToUserData(src []byte, hostname string) ([]byte, error) {
+	var dataMap map[string]interface{}
+	json.Unmarshal([]byte(src), &dataMap)
+	if _, ok := dataMap["storage"]; !ok {
+		dataMap["storage"] = map[string]interface{}{}
+	}
+	storage := (dataMap["storage"]).(map[string]interface{})
+	if _, ok := storage["files"]; !ok {
+		storage["files"] = []map[string]interface{}{}
+	}
+	newFile := map[string]interface{}{
+		"filesystem": "root",
+		"path":       "/etc/hostname",
+		"mode":       420,
+	}
+	newFile["contents"] = map[string]interface{}{
+		"source": fmt.Sprintf("data:,%s", hostname),
+	}
+	storage["files"] = append(storage["files"].([]map[string]interface{}), newFile)
+	result, err := json.Marshal(dataMap)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (m *manager) Delete(machineScope machinescope.MachineScope) error {
+	machineName := machineScope.GetMachineName()
+
 	virtualMachineFromMachine, err := machineScope.CreateVirtualMachineFromMachine()
 	if err != nil {
-		return err
+		msg := fmt.Sprintf("%s: Error during Delete: failed to build Virtual Machine struct, with error: %v", machineName, err)
+		klog.Errorf(msg)
+		return fmt.Errorf(msg)
 	}
 
-	klog.Infof("%s: delete machine", machineScope.GetMachineName())
-
-	existingVM, err := m.getInraClusterVM(virtualMachineFromMachine.GetName(), virtualMachineFromMachine.GetNamespace(), machineScope)
+	existingVM, err := m.getInraClusterVM(virtualMachineFromMachine.GetName(), virtualMachineFromMachine.GetNamespace())
 	if err != nil {
 		if errors.IsNotFound(err) {
-			klog.Infof("%s: VM does not exist", machineScope.GetMachineName())
+			klog.Infof("%s: Virtual Machine does not exist (already deleted - return)", machineName)
 			return nil
 		}
 
-		klog.Errorf("%s: error getting existing VM: %v", machineScope.GetMachineName(), err)
-		return err
+		msg := fmt.Sprintf("%s: Error during Delete: failed to get Virtual Machine from infraCluster, with error: %v", machineName, err)
+		klog.Errorf(msg)
+		return fmt.Errorf(msg)
 	}
 
-	if existingVM == nil {
-		klog.Warningf("%s: VM not found to delete for machine", machineScope.GetMachineName())
-		return nil
+	gracePeriod := int64(10)
+	if err := m.infraClusterClient.DeleteVirtualMachine(context.Background(),
+		existingVM.GetNamespace(),
+		existingVM.GetName(),
+		&k8smetav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}); err != nil {
+		msg := fmt.Sprintf("%s: Error during Delete: failed to delete Virtual Machine in infraCluster, with error: %v", machineName, err)
+		klog.Errorf(msg)
+		return fmt.Errorf(msg)
 	}
 
-	if err := m.deleteInraClusterVM(existingVM.GetName(), existingVM.GetNamespace(), machineScope); err != nil {
-		return fmt.Errorf("failed to delete VM: %w", err)
-	}
-
-	klog.Infof("Deleted machine %v", machineScope.GetMachineName())
+	klog.Infof("%s: VirtualMachine was deleted in infracluster for the Machine", machineName)
 
 	return nil
 }
 
-// update finds a vm and reconciles the machine resource status against it.
-func (m *manager) Update(machineScope machinescope.MachineScope) (wasUpdated bool, resultErr error) {
+func (m *manager) Update(machineScope machinescope.MachineScope) (bool, error) {
+	machineName := machineScope.GetMachineName()
+
 	virtualMachineFromMachine, err := machineScope.CreateVirtualMachineFromMachine()
 	if err != nil {
-		return false, err
+		msg := fmt.Sprintf("%s: Error during Update: failed to build Virtual Machine struct, with error: %v", machineName, err)
+		klog.Errorf(msg)
+		return false, fmt.Errorf(msg)
 	}
 
-	klog.Infof("%s: update machine", machineScope.GetMachineName())
-
-	defer func() {
-		// After the operation is done (success or failure)
-		// Update the machine object with the relevant changes
-		if err := machineScope.PatchMachine(); err != nil {
-			resultErr = err
-		}
-	}()
-
-	wasUpdated, updatedVM, err := m.updateVM(err, virtualMachineFromMachine, machineScope)
+	existingVM, err := m.getInraClusterVM(virtualMachineFromMachine.GetName(), virtualMachineFromMachine.GetNamespace())
 	if err != nil {
-		return false, err
-	}
-
-	if err := m.syncMachine(updatedVM, machineScope); err != nil {
-		klog.Errorf("%s: fail syncing machine from vm: %v", machineScope.GetMachineName(), err)
-		return false, err
-	}
-	return wasUpdated, nil
-}
-
-func (m *manager) updateVM(err error, virtualMachineFromMachine *kubevirtapiv1.VirtualMachine, machineScope machinescope.MachineScope) (bool, *kubevirtapiv1.VirtualMachine, error) {
-	existingVM, err := m.getInraClusterVM(virtualMachineFromMachine.GetName(), virtualMachineFromMachine.GetNamespace(), machineScope)
-	if err != nil {
-		klog.Errorf("%s: error getting existing VM: %v", machineScope.GetMachineName(), err)
-		return false, nil, err
-	}
-	if existingVM == nil {
-		if machineScope.UpdateAllowed(requeueAfterSeconds) {
-			klog.Infof("%s: Possible eventual-consistency discrepancy; returning an error to requeue", machineScope.GetMachineName())
-			return false, nil, &machinecontroller.RequeueAfterError{RequeueAfter: requeueAfterSeconds * time.Second}
-		}
-		klog.Warningf("%s: attempted to update machine but the VM found", machineScope.GetMachineName())
-
-		// This is an unrecoverable error condition.  We should delay to
-		// minimize unnecessary API calls.
-		return false, nil, &machinecontroller.RequeueAfterError{RequeueAfter: requeueAfterFatalSeconds * time.Second}
+		msg := fmt.Sprintf("%s: Error during Update: failed to get Virtual Machine from infraCluster, with error: %v", machineName, err)
+		klog.Errorf(msg)
+		return false, fmt.Errorf(msg)
 	}
 
 	previousResourceVersion := existingVM.ResourceVersion
@@ -184,71 +171,70 @@ func (m *manager) updateVM(err error, virtualMachineFromMachine *kubevirtapiv1.V
 		Ready:   existingVM.Status.Ready,
 	}
 
-	updatedVM, err := m.updateInraClusterVM(virtualMachineFromMachine, machineScope)
+	updatedVM, err := m.infraClusterClient.UpdateVirtualMachine(context.Background(), virtualMachineFromMachine.Namespace, virtualMachineFromMachine)
 	if err != nil {
-		return false, nil, fmt.Errorf("failed to update VM: %w", err)
+		msg := fmt.Sprintf("%s: Error during Update: failed to update Virtual Machine in infraCluster, with error: %v", machineName, err)
+		klog.Errorf(msg)
+		return false, fmt.Errorf(msg)
 	}
 	currentResourceVersion := updatedVM.ResourceVersion
 
-	klog.Infof("Updated machine %s", machineScope.GetMachineName())
-
 	wasUpdated := previousResourceVersion != currentResourceVersion
-	return wasUpdated, updatedVM, nil
+
+	updateText := "the virtual machine wasn't changed"
+	if wasUpdated {
+		updateText = "the virtual machine was changed - updated successfully"
+	}
+
+	klog.Infof("%s: VirtualMachine update was called in infracluster for the Machine, result: %s (oldVersion = %s, newVersion = %s)",
+		machineName, updateText, previousResourceVersion, currentResourceVersion)
+
+	err = m.syncMachine(*updatedVM, machineScope, machineName, "Update")
+
+	return wasUpdated, err
 }
 
-func (m *manager) syncMachine(vm *kubevirtapiv1.VirtualMachine, machineScope machinescope.MachineScope) error {
-	vmi, err := m.getInraClusterVMI(vm.Name, vm.Namespace, machineScope)
+func (m *manager) syncMachine(vm kubevirtapiv1.VirtualMachine, machineScope machinescope.MachineScope, machineName string, operation string) error {
+	vmi, err := m.infraClusterClient.GetVirtualMachineInstance(context.Background(), vm.Namespace, vm.Name, &k8smetav1.GetOptions{})
 	if err != nil {
-		klog.Errorf("%s: error getting vmi for machine: %v", machineScope.GetMachineName(), err)
+		msg := fmt.Sprintf("%s: Error during %s: failed to get vmi of the Machine, with error: %v", machineName, operation, err)
+		klog.Errorf(msg)
+		return fmt.Errorf(msg)
 	}
-	if err := machineScope.SyncMachineFromVm(vm, vmi); err != nil {
-		klog.Errorf("%s: fail syncing machine from vm: %v", machineScope.GetMachineName(), err)
-		return err
+
+	providerID := FormatProviderID(vm.GetNamespace(), vm.GetName())
+
+	if err := machineScope.SyncMachine(vm, *vmi, providerID); err != nil {
+		msg := fmt.Sprintf("%s: Error during %s: failed to sync the Machine, with error: %v", machineName, operation, err)
+		klog.Errorf(msg)
+		return fmt.Errorf(msg)
 	}
 	return nil
 }
 
-// exists returns true if machine exists.
-func (m *manager) Exists(machineScope machinescope.MachineScope) (bool, error) {
-	klog.Infof("%s: check if machine exists", machineScope.GetMachineName())
-	existingVM, err := m.getInraClusterVM(machineScope.GetMachineName(), machineScope.VmNamespace(), machineScope)
+func (m *manager) Exists(machineName string, infraNamespace string) (bool, error) {
+	klog.Infof("%s: check if machine exists", machineName)
+	_, err := m.getInraClusterVM(machineName, infraNamespace)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			klog.Infof("%s: VM does not exist", machineScope.GetMachineName())
+			klog.Infof("%s: Virtual Machine of this Machine does not exist", machineName)
 			return false, nil
 		}
-		klog.Errorf("%s: error getting existing VM: %v", machineScope.GetMachineName(), err)
-		return false, err
-	}
-
-	if existingVM == nil {
-		klog.Infof("%s: VM does not exist", machineScope.GetMachineName())
-		return false, nil
+		msg := fmt.Sprintf("%s: Error during Exists: failed to get vm of the Machine, with error: %v", machineName, err)
+		klog.Errorf(msg)
+		return false, fmt.Errorf(msg)
 	}
 
 	return true, nil
 }
 
-func (m *manager) createInfraClusterVM(virtualMachine *kubevirtapiv1.VirtualMachine, machineScope machinescope.MachineScope) (*kubevirtapiv1.VirtualMachine, error) {
-	return m.infraClusterClient.CreateVirtualMachine(context.Background(), virtualMachine.Namespace, virtualMachine)
-}
-
-func (m *manager) createInfraClusterSecret(secret *corev1.Secret, machineScope machinescope.MachineScope) (*corev1.Secret, error) {
-	return m.infraClusterClient.CreateSecret(context.Background(), secret.Namespace, secret)
-}
-
-func (m *manager) getInraClusterVM(vmName, vmNamespace string, machineScope machinescope.MachineScope) (*kubevirtapiv1.VirtualMachine, error) {
+func (m *manager) getInraClusterVM(vmName, vmNamespace string) (*kubevirtapiv1.VirtualMachine, error) {
 	return m.infraClusterClient.GetVirtualMachine(context.Background(), vmNamespace, vmName, &k8smetav1.GetOptions{})
 }
-func (m *manager) getInraClusterVMI(vmName, vmNamespace string, machineScope machinescope.MachineScope) (*kubevirtapiv1.VirtualMachineInstance, error) {
-	return m.infraClusterClient.GetVirtualMachineInstance(context.Background(), vmNamespace, vmName, &k8smetav1.GetOptions{})
-}
 
-func (m *manager) deleteInraClusterVM(vmName, vmNamespace string, machineScope machinescope.MachineScope) error {
-	gracePeriod := int64(10)
-	return m.infraClusterClient.DeleteVirtualMachine(context.Background(), vmNamespace, vmName, &k8smetav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
-}
-
-func (m *manager) updateInraClusterVM(updatedVM *kubevirtapiv1.VirtualMachine, machineScope machinescope.MachineScope) (*kubevirtapiv1.VirtualMachine, error) {
-	return m.infraClusterClient.UpdateVirtualMachine(context.Background(), updatedVM.Namespace, updatedVM)
+// FormatProviderID consumes the provider ID of the VM and returns
+// a standard format to be used by machine and node reconcilers.
+// See idFormat
+func FormatProviderID(namespace, name string) string {
+	return fmt.Sprintf(idFormat, namespace, name)
 }
