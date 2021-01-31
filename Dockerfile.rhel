@@ -19,9 +19,9 @@ LABEL   com.redhat.component="machine-api" \
         summary="cluster-api-provider-kubevirt" \
         maintainer="ocpcnvteam <ocpcnvteam@redhat.com>"
         
-WORKDIR /go/src/github.com/kubevirt/cluster-api-provider-kubevirt
+WORKDIR /go/src/github.com/openshift/cluster-api-provider-kubevirt
 COPY . .
 RUN make build NO_DOCKER=1
 
 FROM registry.ci.openshift.org/ocp/4.7:base
-COPY --from=builder /go/src/github.com/kubevirt/cluster-api-provider-kubevirt/bin/machine-controller-manager /
+COPY --from=builder /go/src/github.com/openshift/cluster-api-provider-kubevirt/bin/machine-controller-manager /
