@@ -165,12 +165,6 @@ func (m *manager) Update(machineScope machinescope.MachineScope) (bool, error) {
 	previousResourceVersion := existingVM.ResourceVersion
 	virtualMachineFromMachine.ObjectMeta.ResourceVersion = previousResourceVersion
 
-	//TODO remove it after pushing that PR: https://github.com/kubevirt/kubevirt/pull/3889
-	virtualMachineFromMachine.Status = kubevirtapiv1.VirtualMachineStatus{
-		Created: existingVM.Status.Created,
-		Ready:   existingVM.Status.Ready,
-	}
-
 	updatedVM, err := m.infraClusterClient.UpdateVirtualMachine(context.Background(), virtualMachineFromMachine.Namespace, virtualMachineFromMachine)
 	if err != nil {
 		msg := fmt.Sprintf("%s: Error during Update: failed to update Virtual Machine in infraCluster, with error: %v", machineName, err)

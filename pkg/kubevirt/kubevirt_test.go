@@ -385,8 +385,6 @@ func TestUpdate(t *testing.T) {
 			vms.existingVM.Status.Ready = true
 			vms.existingVM.Status.Created = true
 			vms.updateVM.ObjectMeta.ResourceVersion = "1234"
-			vms.updateVM.Status.Ready = true
-			vms.updateVM.Status.Created = true
 			vms.resultVM.ObjectMeta.ResourceVersion = "12345"
 
 			tc.expect(mockInfraClusterClient, mockMachineScope, vms)
