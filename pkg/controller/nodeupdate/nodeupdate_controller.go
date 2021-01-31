@@ -1,16 +1,18 @@
-// providerID package implements a controller to reconcile the providerID spec
-// property on nodes in order to identify a machine by a node and vice versa.
+// nodeupdate package implements a controller to reconcile updates on the Node of the Machine:
+// - Update providerID spec property on nodes in order to identify a machine by a node and vice versa.
+// - In case the infrastructure machine (kubevirt VirtualMachine) was delete, delete its node
+// - In case the infrastructure machine (kubevirt VirtualMachine) is not ready, requeue to re-check
 // This functionality is traditionally (but not mandatory) a part of a
 // cloud-provider implementation and it is what makes auto-scaling works.
-package providerid
+package nodeupdate
 
 import (
 	"context"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -21,9 +23,18 @@ import (
 
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/infracluster"
 	"github.com/openshift/cluster-api-provider-kubevirt/pkg/clients/tenantcluster"
+	"github.com/openshift/cluster-api-provider-kubevirt/pkg/kubevirt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const IDFormat = "kubevirt://%s/%s"
+const (
+	configMapNamespace             = "openshift-config"
+	configMapName                  = "cloud-provider-config"
+	configMapDataKeyName           = "config"
+	configMapInfraNamespaceKeyName = "namespace"
+	configMapInfraIDKeyName        = "infraID"
+	requeueDurationWhenVMNotReady  = 60 * time.Second
+)
 
 var _ reconcile.Reconciler = &providerIDReconciler{}
 
@@ -37,7 +48,7 @@ type providerIDReconciler struct {
 // of the machine on kubevirt. The ID is the VM.metadata.namespace/VM.metadata.name
 // as its guarantee to be unique in a cluster.
 func (r *providerIDReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	klog.V(3).Info("Reconciling", "node", request.NamespacedName)
+	klog.Infof("%s: Reconciling node", request.NamespacedName)
 
 	// Fetch the Node instance
 	node := corev1.Node{}
@@ -47,52 +58,54 @@ func (r *providerIDReconciler) Reconcile(request reconcile.Request) (reconcile.R
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			klog.Infof("%s: Node not found - do nothing", request.NamespacedName)
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, fmt.Errorf("error getting node: %v", err)
 	}
 
+	cMap, err := r.tenantClusterClient.GetConfigMapValue(context.Background(), configMapName, configMapNamespace, configMapDataKeyName)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	infraClusterNamespace, ok := (*cMap)[configMapInfraNamespaceKeyName]
+	if !ok {
+		return reconcile.Result{}, fmt.Errorf("ProviderID: configMap %s/%s: The map extracted with key %s doesn't contain key %s",
+			configMapNamespace, configMapName, configMapDataKeyName, configMapInfraNamespaceKeyName)
+	}
+
+	vm, err := r.infraClusterClient.GetVirtualMachine(context.Background(), infraClusterNamespace, node.Name, &metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			klog.Infof("%s: Virtual Machine of this node doesn't exists - delete the node", node.Name)
+			if err := r.client.Delete(context.Background(), &node); err != nil {
+				return reconcile.Result{}, fmt.Errorf("%s: Error deleting Node, with error: %v", node.Name, err)
+			}
+			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{}, fmt.Errorf("%s: Error getting Virtual Machine, with error: %v", node.Name, err)
+	}
+
+	if !vm.Status.Ready {
+		klog.Infof("%s: Virtual Machine of this node isn't ready - requeue for 1 minute", node.Name)
+		return reconcile.Result{Requeue: true, RequeueAfter: requeueDurationWhenVMNotReady}, nil
+	}
+
 	if node.Spec.ProviderID != "" {
 		return reconcile.Result{}, nil
 	}
 
-	klog.Info("spec.ProviderID is empty, fetching from the infra-cluster", "node", request.NamespacedName)
-	id, err := r.getVMName(node.Name)
-	if err != nil {
-		return reconcile.Result{}, err
+	klog.Infof("%s: ProviderID is not updated in the node - update it", node.Name)
+
+	node.Spec.ProviderID = kubevirt.FormatProviderID(infraClusterNamespace, node.Name)
+
+	if err = r.client.Update(context.Background(), &node); err != nil {
+		return reconcile.Result{}, fmt.Errorf("%s: failed updating node, with error: %v", node.Name, err)
 	}
 
-	infraClusterNamespace, err := r.tenantClusterClient.GetNamespace()
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	node.Spec.ProviderID = FormatProviderID(infraClusterNamespace, id)
-	err = r.client.Update(context.Background(), &node)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed updating node %s: %v", node.Name, err)
-	}
 	return reconcile.Result{}, nil
-}
-
-// FormatProviderID consumes the provider ID of the VM and returns
-// a standard format to be used by machine and node reconcilers.
-// See IDFormat
-func FormatProviderID(namespace, name string) string {
-	return fmt.Sprintf(IDFormat, namespace, name)
-}
-
-func (r *providerIDReconciler) getVMName(nodeName string) (string, error) {
-	infraClusterNamespace, err := r.tenantClusterClient.GetNamespace()
-	if err != nil {
-		return "", err
-	}
-	vmi, err := r.infraClusterClient.GetVirtualMachineInstance(context.Background(), infraClusterNamespace, nodeName, &v1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-	return vmi.Name, nil
 }
 
 // Add registers a new provider ID reconciler controller with the controller manager
