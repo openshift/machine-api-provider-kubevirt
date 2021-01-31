@@ -78,32 +78,17 @@ func (mr *MockClientMockRecorder) GetSecret(ctx, secretName, namespace interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockClient)(nil).GetSecret), ctx, secretName, namespace)
 }
 
-// GetNamespace mocks base method
-func (m *MockClient) GetNamespace() (string, error) {
+// GetConfigMapValue mocks base method
+func (m *MockClient) GetConfigMapValue(ctx context.Context, configMapName, configMapNamespace, configMapDataKeyName string) (*map[string]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetNamespace")
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "GetConfigMapValue", ctx, configMapName, configMapNamespace, configMapDataKeyName)
+	ret0, _ := ret[0].(*map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetNamespace indicates an expected call of GetNamespace
-func (mr *MockClientMockRecorder) GetNamespace() *gomock.Call {
+// GetConfigMapValue indicates an expected call of GetConfigMapValue
+func (mr *MockClientMockRecorder) GetConfigMapValue(ctx, configMapName, configMapNamespace, configMapDataKeyName interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNamespace", reflect.TypeOf((*MockClient)(nil).GetNamespace))
-}
-
-// GetInfraID mocks base method
-func (m *MockClient) GetInfraID() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetInfraID")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetInfraID indicates an expected call of GetInfraID
-func (mr *MockClientMockRecorder) GetInfraID() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInfraID", reflect.TypeOf((*MockClient)(nil).GetInfraID))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConfigMapValue", reflect.TypeOf((*MockClient)(nil).GetConfigMapValue), ctx, configMapName, configMapNamespace, configMapDataKeyName)
 }
