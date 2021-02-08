@@ -63,7 +63,7 @@ var (
 	vmiResource = schema.GroupVersionResource{
 		Group:    kubevirtapiv1.GroupVersion.Group,
 		Version:  kubevirtapiv1.GroupVersion.Version,
-		Resource: "virtualmachinesinstance",
+		Resource: "virtualmachineinstances",
 	}
 )
 
