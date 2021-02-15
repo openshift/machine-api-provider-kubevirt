@@ -31,6 +31,7 @@ func TestCreate(t *testing.T) {
 			name: "Success",
 			expect: func(mockInfraClusterClient *mockInfraClusterClient.MockClient, mockMachineScope *mockMachineScope.MockMachineScope) {
 				vm := testutils.StubVirtualMachine(nil, nil, nil)
+				vm.Status.Ready = true
 				vmi := testutils.StubVirtualMachineInstance()
 				ignitionSecret := testutils.StubIgnitionSecret()
 
@@ -40,7 +41,21 @@ func TestCreate(t *testing.T) {
 				mockMachineScope.EXPECT().CreateVirtualMachineFromMachine().Return(vm, nil).Times(1)
 				mockInfraClusterClient.EXPECT().CreateVirtualMachine(gomock.Any(), testutils.InfraNamespace, vm).Return(vm, nil).Times(1)
 				mockInfraClusterClient.EXPECT().GetVirtualMachineInstance(gomock.Any(), testutils.InfraNamespace, testutils.MachineName, gomock.Any()).Return(vmi, nil).Times(1)
-				mockMachineScope.EXPECT().SyncMachine(*vm, *vmi, fmt.Sprintf(providerIDFmt, testutils.InfraNamespace, testutils.MachineName)).Return(nil).Times(1)
+				mockMachineScope.EXPECT().SyncMachine(*vm, vmi, fmt.Sprintf(providerIDFmt, testutils.InfraNamespace, testutils.MachineName)).Return(nil).Times(1)
+			},
+		},
+		{
+			name: "Success vm not ready",
+			expect: func(mockInfraClusterClient *mockInfraClusterClient.MockClient, mockMachineScope *mockMachineScope.MockMachineScope) {
+				vm := testutils.StubVirtualMachine(nil, nil, nil)
+				ignitionSecret := testutils.StubIgnitionSecret()
+
+				mockMachineScope.EXPECT().GetMachineName().Return(testutils.MachineName).Times(1)
+				mockMachineScope.EXPECT().CreateIgnitionSecretFromMachine([]byte(fmt.Sprintf(testutils.FullUserDataFmt, testutils.MachineName))).Return(ignitionSecret).Times(1)
+				mockInfraClusterClient.EXPECT().CreateSecret(gomock.Any(), testutils.InfraNamespace, ignitionSecret).Return(&corev1.Secret{}, nil).Times(1)
+				mockMachineScope.EXPECT().CreateVirtualMachineFromMachine().Return(vm, nil).Times(1)
+				mockInfraClusterClient.EXPECT().CreateVirtualMachine(gomock.Any(), testutils.InfraNamespace, vm).Return(vm, nil).Times(1)
+				mockMachineScope.EXPECT().SyncMachine(*vm, nil, fmt.Sprintf(providerIDFmt, testutils.InfraNamespace, testutils.MachineName)).Return(nil).Times(1)
 			},
 		},
 		{
@@ -85,6 +100,7 @@ func TestCreate(t *testing.T) {
 			name: "Failure get virtual machine instance",
 			expect: func(mockInfraClusterClient *mockInfraClusterClient.MockClient, mockMachineScope *mockMachineScope.MockMachineScope) {
 				vm := testutils.StubVirtualMachine(nil, nil, nil)
+				vm.Status.Ready = true
 				vmi := testutils.StubVirtualMachineInstance()
 				ignitionSecret := testutils.StubIgnitionSecret()
 
@@ -101,6 +117,7 @@ func TestCreate(t *testing.T) {
 			name: "Failure sync machine",
 			expect: func(mockInfraClusterClient *mockInfraClusterClient.MockClient, mockMachineScope *mockMachineScope.MockMachineScope) {
 				vm := testutils.StubVirtualMachine(nil, nil, nil)
+				vm.Status.Ready = true
 				vmi := testutils.StubVirtualMachineInstance()
 				ignitionSecret := testutils.StubIgnitionSecret()
 
@@ -110,7 +127,7 @@ func TestCreate(t *testing.T) {
 				mockMachineScope.EXPECT().CreateVirtualMachineFromMachine().Return(vm, nil).Times(1)
 				mockInfraClusterClient.EXPECT().CreateVirtualMachine(gomock.Any(), testutils.InfraNamespace, vm).Return(vm, nil).Times(1)
 				mockInfraClusterClient.EXPECT().GetVirtualMachineInstance(gomock.Any(), testutils.InfraNamespace, testutils.MachineName, gomock.Any()).Return(vmi, nil).Times(1)
-				mockMachineScope.EXPECT().SyncMachine(*vm, *vmi, fmt.Sprintf(providerIDFmt, testutils.InfraNamespace, testutils.MachineName)).Return(fmt.Errorf("test error")).Times(1)
+				mockMachineScope.EXPECT().SyncMachine(*vm, vmi, fmt.Sprintf(providerIDFmt, testutils.InfraNamespace, testutils.MachineName)).Return(fmt.Errorf("test error")).Times(1)
 			},
 			expectedErr: "test-machine-name: Error during Create: failed to sync the Machine, with error: test error",
 		},
@@ -125,7 +142,7 @@ func TestCreate(t *testing.T) {
 			tc.expect(mockInfraClusterClient, mockMachineScope)
 
 			kubevirtVM := New(mockInfraClusterClient)
-			err := kubevirtVM.Create(mockMachineScope, []byte(testutils.SrcUserData))
+			_, err := kubevirtVM.Create(mockMachineScope, []byte(testutils.SrcUserData))
 			if tc.expectedErr != "" {
 				assert.Error(t, err, tc.expectedErr)
 			} else {
@@ -295,7 +312,20 @@ func TestUpdate(t *testing.T) {
 				mockInfraClusterClient.EXPECT().GetVirtualMachine(gomock.Any(), testutils.InfraNamespace, testutils.MachineName, gomock.Any()).Return(vms.existingVM, nil).Times(1)
 				mockInfraClusterClient.EXPECT().UpdateVirtualMachine(gomock.Any(), testutils.InfraNamespace, vms.updateVM).Return(vms.resultVM, nil).Times(1)
 				mockInfraClusterClient.EXPECT().GetVirtualMachineInstance(gomock.Any(), testutils.InfraNamespace, testutils.MachineName, gomock.Any()).Return(vmi, nil).Times(1)
-				mockMachineScope.EXPECT().SyncMachine(*vms.resultVM, *vmi, fmt.Sprintf(providerIDFmt, testutils.InfraNamespace, testutils.MachineName)).Return(nil).Times(1)
+				mockMachineScope.EXPECT().SyncMachine(*vms.resultVM, vmi, fmt.Sprintf(providerIDFmt, testutils.InfraNamespace, testutils.MachineName)).Return(nil).Times(1)
+			},
+			expectedResult: true,
+		},
+		{
+			name: "Success vm not ready",
+			expect: func(mockInfraClusterClient *mockInfraClusterClient.MockClient, mockMachineScope *mockMachineScope.MockMachineScope, vms vmsForUpdate) {
+				vms.resultVM.Status.Ready = false
+
+				mockMachineScope.EXPECT().GetMachineName().Return(testutils.MachineName).Times(1)
+				mockMachineScope.EXPECT().CreateVirtualMachineFromMachine().Return(vms.createdVM, nil).Times(1)
+				mockInfraClusterClient.EXPECT().GetVirtualMachine(gomock.Any(), testutils.InfraNamespace, testutils.MachineName, gomock.Any()).Return(vms.existingVM, nil).Times(1)
+				mockInfraClusterClient.EXPECT().UpdateVirtualMachine(gomock.Any(), testutils.InfraNamespace, vms.updateVM).Return(vms.resultVM, nil).Times(1)
+				mockMachineScope.EXPECT().SyncMachine(*vms.resultVM, nil, fmt.Sprintf(providerIDFmt, testutils.InfraNamespace, testutils.MachineName)).Return(nil).Times(1)
 			},
 			expectedResult: true,
 		},
@@ -311,7 +341,7 @@ func TestUpdate(t *testing.T) {
 				mockInfraClusterClient.EXPECT().GetVirtualMachine(gomock.Any(), testutils.InfraNamespace, testutils.MachineName, gomock.Any()).Return(vms.existingVM, nil).Times(1)
 				mockInfraClusterClient.EXPECT().UpdateVirtualMachine(gomock.Any(), testutils.InfraNamespace, vms.updateVM).Return(vms.resultVM, nil).Times(1)
 				mockInfraClusterClient.EXPECT().GetVirtualMachineInstance(gomock.Any(), testutils.InfraNamespace, testutils.MachineName, gomock.Any()).Return(vmi, nil).Times(1)
-				mockMachineScope.EXPECT().SyncMachine(*vms.resultVM, *vmi, fmt.Sprintf(providerIDFmt, testutils.InfraNamespace, testutils.MachineName)).Return(nil).Times(1)
+				mockMachineScope.EXPECT().SyncMachine(*vms.resultVM, vmi, fmt.Sprintf(providerIDFmt, testutils.InfraNamespace, testutils.MachineName)).Return(nil).Times(1)
 			},
 			expectedResult: false,
 		},
@@ -363,7 +393,7 @@ func TestUpdate(t *testing.T) {
 				mockInfraClusterClient.EXPECT().GetVirtualMachine(gomock.Any(), testutils.InfraNamespace, testutils.MachineName, gomock.Any()).Return(vms.existingVM, nil).Times(1)
 				mockInfraClusterClient.EXPECT().UpdateVirtualMachine(gomock.Any(), testutils.InfraNamespace, vms.updateVM).Return(vms.resultVM, nil).Times(1)
 				mockInfraClusterClient.EXPECT().GetVirtualMachineInstance(gomock.Any(), testutils.InfraNamespace, testutils.MachineName, gomock.Any()).Return(vmi, nil).Times(1)
-				mockMachineScope.EXPECT().SyncMachine(*vms.resultVM, *vmi, fmt.Sprintf(providerIDFmt, testutils.InfraNamespace, testutils.MachineName)).Return(fmt.Errorf("test error")).Times(1)
+				mockMachineScope.EXPECT().SyncMachine(*vms.resultVM, vmi, fmt.Sprintf(providerIDFmt, testutils.InfraNamespace, testutils.MachineName)).Return(fmt.Errorf("test error")).Times(1)
 			},
 			expectedErr: "test-machine-name: Error during Update: failed to sync the Machine, with error: test error",
 		},
@@ -381,21 +411,24 @@ func TestUpdate(t *testing.T) {
 				updateVM:   testutils.StubVirtualMachine(nil, nil, nil),
 				resultVM:   testutils.StubVirtualMachine(nil, nil, nil),
 			}
+			vms.createdVM.Status.Ready = true
 			vms.existingVM.ObjectMeta.ResourceVersion = "1234"
 			vms.existingVM.Status.Ready = true
 			vms.existingVM.Status.Created = true
 			vms.updateVM.ObjectMeta.ResourceVersion = "1234"
+			vms.updateVM.Status.Ready = true
 			vms.resultVM.ObjectMeta.ResourceVersion = "12345"
+			vms.resultVM.Status.Ready = true
 
 			tc.expect(mockInfraClusterClient, mockMachineScope, vms)
 
 			kubevirtVM := New(mockInfraClusterClient)
-			result, err := kubevirtVM.Update(mockMachineScope)
+			isUpdated, _, err := kubevirtVM.Update(mockMachineScope)
 			if tc.expectedErr != "" {
 				assert.Error(t, err, tc.expectedErr)
 			} else {
 				assert.NilError(t, err)
-				assert.Equal(t, result, tc.expectedResult)
+				assert.Equal(t, isUpdated, tc.expectedResult)
 			}
 		})
 	}

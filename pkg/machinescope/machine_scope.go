@@ -52,7 +52,7 @@ type MachineScope interface {
 	// SyncMachine update the Machine status, base of provided VirtualMachine and VirtualMachineInstance
 	// The following information is synced:
 	// ProviderID, Annotations, Labels, NetworkAddresses, ProviderStatus
-	SyncMachine(vm kubevirtapiv1.VirtualMachine, vmi kubevirtapiv1.VirtualMachineInstance, providerID string) error
+	SyncMachine(vm kubevirtapiv1.VirtualMachine, vmi *kubevirtapiv1.VirtualMachineInstance, providerID string) error
 	// CreateVirtualMachineFromMachine builds *kubevirtapiv1.VirtualMachine struct, based on the data saved in the Machine
 	CreateVirtualMachineFromMachine() (*kubevirtapiv1.VirtualMachine, error)
 	// GetMachine returns *machinev1.Machine struct saved in this MachineScope
@@ -338,10 +338,12 @@ func buildBootVolumeDataVolumeTemplate(virtualMachineName, pvcName, dvNamespace,
 	}
 }
 
-func (s *machineScope) SyncMachine(vm kubevirtapiv1.VirtualMachine, vmi kubevirtapiv1.VirtualMachineInstance, providerID string) error {
+func (s *machineScope) SyncMachine(vm kubevirtapiv1.VirtualMachine, vmi *kubevirtapiv1.VirtualMachineInstance, providerID string) error {
 	s.syncProviderID(vm, providerID)
 	s.syncMachineAnnotationsAndLabels(vm)
-	s.syncNetworkAddresses(vmi)
+	if vmi != nil {
+		s.syncNetworkAddresses(*vmi)
+	}
 	return s.syncProviderStatus(vm)
 }
 
