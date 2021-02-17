@@ -189,7 +189,7 @@ func TestSyncMachine(t *testing.T) {
 
 			expectedResultMachine := stubExpectedResultMachine(t, vm, vmi, providerID, machineType, tc.modifyExpectedMachine)
 
-			err := machineScope.SyncMachine(*vm, *vmi, providerID)
+			err := machineScope.SyncMachine(*vm, vmi, providerID)
 			if tc.expectedErr != "" {
 				assert.Error(t, err, tc.expectedErr)
 			} else {

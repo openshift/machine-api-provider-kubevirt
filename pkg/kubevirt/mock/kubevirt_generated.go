@@ -34,11 +34,12 @@ func (m *MockKubevirtVM) EXPECT() *MockKubevirtVMMockRecorder {
 }
 
 // Create mocks base method
-func (m *MockKubevirtVM) Create(machineScope machinescope.MachineScope, userData []byte) error {
+func (m *MockKubevirtVM) Create(machineScope machinescope.MachineScope, userData []byte) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", machineScope, userData)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Create indicates an expected call of Create
@@ -62,12 +63,13 @@ func (mr *MockKubevirtVMMockRecorder) Delete(machineScope interface{}) *gomock.C
 }
 
 // Update mocks base method
-func (m *MockKubevirtVM) Update(machineScope machinescope.MachineScope) (bool, error) {
+func (m *MockKubevirtVM) Update(machineScope machinescope.MachineScope) (bool, bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", machineScope)
 	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Update indicates an expected call of Update

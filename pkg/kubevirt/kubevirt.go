@@ -25,12 +25,12 @@ const (
 // KubevirtVM runs the logic to reconciles a machine resource towards its desired state
 type KubevirtVM interface {
 	// Create creates resources in the InfraCluster for the provided Machine, if it does not exist
-	Create(machineScope machinescope.MachineScope, userData []byte) error
-	// Create deletes the resources of the provided Machine from the InfraCluster
+	Create(machineScope machinescope.MachineScope, userData []byte) (bool, error)
+	// Delete deletes the resources of the provided Machine from the InfraCluster
 	Delete(machineScope machinescope.MachineScope) error
 	// Update updates the VirtualMachine of the provided Machine in the InfraCluster with the changes in the Machine
 	// Update finds the relevant VirtualMachine and reconciles the Machine resource status against it.
-	Update(machineScope machinescope.MachineScope) (bool, error)
+	Update(machineScope machinescope.MachineScope) (bool, bool, error)
 	// Exists check if the VirtualMachine of the provided Machine exists in the InfraCluster
 	Exists(machineName string, infraNamespace string) (bool, error)
 }
@@ -47,12 +47,12 @@ func New(infraClusterClient infracluster.Client) KubevirtVM {
 	}
 }
 
-func (m *manager) Create(machineScope machinescope.MachineScope, userData []byte) (resultErr error) {
+func (m *manager) Create(machineScope machinescope.MachineScope, userData []byte) (ready bool, resultErr error) {
 	machineName := machineScope.GetMachineName()
 
 	fullUserData, err := addHostnameToUserData(userData, machineName)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	secretFromMachine := machineScope.CreateIgnitionSecretFromMachine(fullUserData)
@@ -60,26 +60,26 @@ func (m *manager) Create(machineScope machinescope.MachineScope, userData []byte
 	if _, err := m.infraClusterClient.CreateSecret(context.Background(), secretFromMachine.Namespace, secretFromMachine); err != nil {
 		msg := fmt.Sprintf("%s: Error during Create: failed to create ignition secret in infraCluster, with error: %v", machineName, err)
 		klog.Errorf(msg)
-		return fmt.Errorf(msg)
+		return false, fmt.Errorf(msg)
 	}
 
 	virtualMachineFromMachine, err := machineScope.CreateVirtualMachineFromMachine()
 	if err != nil {
 		msg := fmt.Sprintf("%s: Error during Create: failed to build Virtual Machine struct, with error: %v", machineName, err)
 		klog.Errorf(msg)
-		return fmt.Errorf(msg)
+		return false, fmt.Errorf(msg)
 	}
 
 	createdVM, err := m.infraClusterClient.CreateVirtualMachine(context.Background(), virtualMachineFromMachine.Namespace, virtualMachineFromMachine)
 	if err != nil {
 		msg := fmt.Sprintf("%s: Error during Create: failed to create Virtual Machine in infraCluster, with error: %v", machineName, err)
 		klog.Errorf(msg)
-		return fmt.Errorf(msg)
+		return false, fmt.Errorf(msg)
 	}
 
 	klog.Infof("%s: VirtualMachine was created in infracluster for the Machine", machineName)
 
-	return m.syncMachine(*createdVM, machineScope, machineName, "Create")
+	return createdVM.Status.Ready, m.syncMachine(*createdVM, machineScope, machineName, "Create")
 }
 
 func addHostnameToUserData(src []byte, hostname string) ([]byte, error) {
@@ -145,21 +145,21 @@ func (m *manager) Delete(machineScope machinescope.MachineScope) error {
 	return nil
 }
 
-func (m *manager) Update(machineScope machinescope.MachineScope) (bool, error) {
+func (m *manager) Update(machineScope machinescope.MachineScope) (bool, bool, error) {
 	machineName := machineScope.GetMachineName()
 
 	virtualMachineFromMachine, err := machineScope.CreateVirtualMachineFromMachine()
 	if err != nil {
 		msg := fmt.Sprintf("%s: Error during Update: failed to build Virtual Machine struct, with error: %v", machineName, err)
 		klog.Errorf(msg)
-		return false, fmt.Errorf(msg)
+		return false, false, fmt.Errorf(msg)
 	}
 
 	existingVM, err := m.getInraClusterVM(virtualMachineFromMachine.GetName(), virtualMachineFromMachine.GetNamespace())
 	if err != nil {
 		msg := fmt.Sprintf("%s: Error during Update: failed to get Virtual Machine from infraCluster, with error: %v", machineName, err)
 		klog.Errorf(msg)
-		return false, fmt.Errorf(msg)
+		return false, false, fmt.Errorf(msg)
 	}
 
 	previousResourceVersion := existingVM.ResourceVersion
@@ -169,7 +169,7 @@ func (m *manager) Update(machineScope machinescope.MachineScope) (bool, error) {
 	if err != nil {
 		msg := fmt.Sprintf("%s: Error during Update: failed to update Virtual Machine in infraCluster, with error: %v", machineName, err)
 		klog.Errorf(msg)
-		return false, fmt.Errorf(msg)
+		return false, false, fmt.Errorf(msg)
 	}
 	currentResourceVersion := updatedVM.ResourceVersion
 
@@ -185,20 +185,24 @@ func (m *manager) Update(machineScope machinescope.MachineScope) (bool, error) {
 
 	err = m.syncMachine(*updatedVM, machineScope, machineName, "Update")
 
-	return wasUpdated, err
+	return wasUpdated, updatedVM.Status.Ready, err
 }
 
 func (m *manager) syncMachine(vm kubevirtapiv1.VirtualMachine, machineScope machinescope.MachineScope, machineName string, operation string) error {
-	vmi, err := m.infraClusterClient.GetVirtualMachineInstance(context.Background(), vm.Namespace, vm.Name, &k8smetav1.GetOptions{})
-	if err != nil {
-		msg := fmt.Sprintf("%s: Error during %s: failed to get vmi of the Machine, with error: %v", machineName, operation, err)
-		klog.Errorf(msg)
-		return fmt.Errorf(msg)
+	var vmi *kubevirtapiv1.VirtualMachineInstance
+	if vm.Status.Ready {
+		var err error
+		vmi, err = m.infraClusterClient.GetVirtualMachineInstance(context.Background(), vm.Namespace, vm.Name, &k8smetav1.GetOptions{})
+		if err != nil {
+			msg := fmt.Sprintf("%s: Error during %s: failed to get vmi of the Machine, with error: %v", machineName, operation, err)
+			klog.Errorf(msg)
+			return fmt.Errorf(msg)
+		}
 	}
 
 	providerID := FormatProviderID(vm.GetNamespace(), vm.GetName())
 
-	if err := machineScope.SyncMachine(vm, *vmi, providerID); err != nil {
+	if err := machineScope.SyncMachine(vm, vmi, providerID); err != nil {
 		msg := fmt.Sprintf("%s: Error during %s: failed to sync the Machine, with error: %v", machineName, operation, err)
 		klog.Errorf(msg)
 		return fmt.Errorf(msg)

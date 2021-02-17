@@ -65,7 +65,7 @@ func (mr *MockMachineScopeMockRecorder) CreateIgnitionSecretFromMachine(userData
 }
 
 // SyncMachine mocks base method
-func (m *MockMachineScope) SyncMachine(vm v10.VirtualMachine, vmi v10.VirtualMachineInstance, providerID string) error {
+func (m *MockMachineScope) SyncMachine(vm v10.VirtualMachine, vmi *v10.VirtualMachineInstance, providerID string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SyncMachine", vm, vmi, providerID)
 	ret0, _ := ret[0].(error)

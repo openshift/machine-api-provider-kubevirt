@@ -125,7 +125,7 @@ func (a *actuator) Create(ctx context.Context, machine *machinev1.Machine) error
 		return a.handleMachineError(machine, a.eventActionPointer(createEventAction), err)
 	}
 
-	err = a.kubevirtVM.Create(machineScope, userData)
+	ready, err := a.kubevirtVM.Create(machineScope, userData)
 	patchErr := a.patchMachine(machineScope.GetMachine(), originMachineCopy)
 	if patchErr != nil {
 		err = patchErr
@@ -135,6 +135,10 @@ func (a *actuator) Create(ctx context.Context, machine *machinev1.Machine) error
 	}
 
 	a.eventRecorder.Eventf(machine, corev1.EventTypeNormal, string(createEventAction), "Created Machine %v", machineScope.GetMachineName())
+
+	if !ready {
+		return fmt.Errorf("Error since VirtualMachine is not ready - requeue")
+	}
 
 	return nil
 }
@@ -175,7 +179,7 @@ func (a *actuator) Update(ctx context.Context, machine *machinev1.Machine) error
 
 	klog.Infof("%s: actuator updating machine", machineScope.GetMachineName())
 
-	wasUpdated, err := a.kubevirtVM.Update(machineScope)
+	wasUpdated, ready, err := a.kubevirtVM.Update(machineScope)
 	patchErr := a.patchMachine(machineScope.GetMachine(), originMachineCopy)
 	if patchErr != nil {
 		err = patchErr
@@ -187,6 +191,10 @@ func (a *actuator) Update(ctx context.Context, machine *machinev1.Machine) error
 	// Create event only if machine object was modified
 	if wasUpdated {
 		a.eventRecorder.Eventf(machine, corev1.EventTypeNormal, string(updateEventAction), "Updated Machine %v", machineScope.GetMachineName())
+	}
+
+	if !ready {
+		return fmt.Errorf("Error since VirtualMachine is not ready - requeue")
 	}
 
 	return nil
