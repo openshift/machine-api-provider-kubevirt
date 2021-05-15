@@ -47,7 +47,7 @@ type providerIDReconciler struct {
 // Reconcile make sure a node has a ProviderID set. The providerID is the ID
 // of the machine on kubevirt. The ID is the VM.metadata.namespace/VM.metadata.name
 // as its guarantee to be unique in a cluster.
-func (r *providerIDReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *providerIDReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	klog.Infof("%s: Reconciling node", request.NamespacedName)
 
 	// Fetch the Node instance
