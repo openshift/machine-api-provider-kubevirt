@@ -158,6 +158,14 @@ func (s *machineScope) assertMandatoryParams() error {
 
 func (s *machineScope) buildVMITemplate(namespace string) *kubevirtapiv1.VirtualMachineInstanceTemplateSpec {
 	virtualMachineName := s.machine.GetName()
+	interfaceBindingMethod := kubevirtapiv1.InterfaceBindingMethod{
+		Bridge: &kubevirtapiv1.InterfaceBridge{},
+	}
+	if s.machineProviderSpec.InterfaceBindingMethod == "SRIOV" {
+		interfaceBindingMethod = kubevirtapiv1.InterfaceBindingMethod{
+			SRIOV: &kubevirtapiv1.InterfaceSRIOV{},
+		}
+	}
 
 	template := &kubevirtapiv1.VirtualMachineInstanceTemplateSpec{}
 
@@ -242,10 +250,8 @@ func (s *machineScope) buildVMITemplate(namespace string) *kubevirtapiv1.Virtual
 		},
 		Interfaces: []kubevirtapiv1.Interface{
 			{
-				Name: mainNetworkName,
-				InterfaceBindingMethod: kubevirtapiv1.InterfaceBindingMethod{
-					Bridge: &kubevirtapiv1.InterfaceBridge{},
-				},
+				Name:                   mainNetworkName,
+				InterfaceBindingMethod: interfaceBindingMethod,
 			},
 		},
 	}
