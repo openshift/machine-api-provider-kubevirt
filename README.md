@@ -1,3 +1,10 @@
+**THIS REPOSITORY IS ARCHIVED**
+
+This repository archive was done as part of Kubevirt platform installation support removal from OCP IPI.\
+It was removed from the following repositories:
+1. [Openshift Installer](https://github.com/openshift/installer)
+2. [machine-api](https://github.com/openshift/machine-api-operator)
+
 # OpenShift cluster-api-provider-kubevirt
 
 This repository hosts an implementation of a provider for KubeVirt for the
